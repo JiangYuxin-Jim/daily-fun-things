@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>沉浸式番茄钟 · Focus Depth</title>
+<style>
+  :root{
+    --bg:#0b0d12; --fg:#eef1f7; --dim:#8a93a6; --line:rgba(255,255,255,.08);
+    --acc:#ff6b5e; --break:#3ddc97;
+    --moodA:#ff5f6d; --moodB:#2b1055;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);overflow:hidden;
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    user-select:none;-webkit-user-select:none;
+  }
+  /* 呼吸背景 */
+  #aurora{position:fixed;inset:-20%;z-index:0;transition:background 2s ease, opacity 1s}
+  #aurora::after{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(circle at 50% 45%, rgba(255,255,255,.16), transparent 55%);
+    animation:breathe 9s ease-in-out infinite;
+  }
+  @keyframes breathe{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.18);opacity:1}}
+
+  .stage{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+
+  .badge{
+    font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.7);
+    border:1px solid var(--line);padding:5px 12px;border-radius:999px;backdrop-filter:blur(6px);
+  }
+  .ring-wrap{position:relative;width:min(74vw,360px);aspect-ratio:1}
+  svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .track{fill:none;stroke:rgba(255,255,255,.09);stroke-width:8}
+  .prog{
+    fill:none;stroke:#fff;stroke-width:8;stroke-linecap:round;
+    stroke-dasharray:1 1; /* 由 JS 设置 */
+    filter:drop-shadow(0 0 10px rgba(255,255,255,.45));
+    transition:stroke-dashoffset .35s linear, stroke .6s;
+  }
+  .time{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .time .num{font-size:clamp(46px,13vw,78px);font-weight:700;letter-spacing:.02em;line-height:1}
+  .time .meta{margin-top:8px;font-size:13px;color:rgba(255,255,255,.72)}
+  .running .num{animation:none}
+  .pulse .num{animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+  button{
+    background:rgba(255,255,255,.08);color:#fff;border:1px solid var(--line);
+    border-radius:999px;padding:10px 20px;font-size:14px;cursor:pointer;transition:.18s;
+    backdrop-filter:blur(6px);
+  }
+  button:hover{background:rgba(255,255,255,.16);transform:translateY(-1px)}
+  button.main{background:#fff;color:#12141a;font-weight:700;min-width:132px;border-color:#fff}
+  button.main:hover{filter:brightness(.94)}
+  button.ghost{padding:10px 14px}
+
+  .dots{display:flex;gap:8px}
+  .dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.22);transition:.3s}
+  .dot.done{background:#fff;box-shadow:0 0 10px rgba(255,255,255,.8)}
+
+  .stats{font-size:12px;color:rgba(255,255,255,.62);letter-spacing:.03em;text-align:center}
+  .stats b{color:#fff;font-weight:600}
+
+  .settings{
+    position:fixed;right:16px;top:16px;z-index:5;width:260px;
+    background:rgba(16,18,26,.92);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    backdrop-filter:blur(14px);font-size:13px;
+    transform:translateY(-140%);transition:transform .35s cubic-bezier(.2,.9,.2,1);
+  }
+  .settings.open{transform:none}
+  .settings h3{margin:0 0 10px;font-size:12px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase}
+  .field{display:flex;justify-content:space-between;align-items:center;margin:8px 0;color:var(--fg)}
+  .field input[type=number]{
+    width:64px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:#fff;
+    border-radius:8px;padding:5px 8px;font-size:13px;text-align:right;
+  }
+  .field input:focus{outline:none;border-color:#fff6}
+  .gear{position:fixed;right:16px;top:16px;z-index:6;display:flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;border-radius:50%}
+  .gear svg{transition:transform .5s}
+  .gear:hover svg{transform:rotate(60deg)}
+  .gear.active svg{transform:rotate(180deg)}
+  .hint{margin-top:10px;color:var(--dim);font-size:11px;line-height:1.5}
+  .tips{font-size:12px;color:rgba(255,255,255,.55);max-width:520px;text-align:center;min-height:18px}
+
+  /* 完成闪屏 */
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9;transition:opacity .5s}
+  #flash.on{opacity:.55;transition:opacity .08s}
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);z-index:10;
+    background:#fff;color:#111;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;
+    opacity:0;pointer-events:none;transition:.22s;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div id="aurora"></div>
+
+<div class="stage" id="stage">
+  <div class="badge" id="mode">Focus · 专注</div>
+
+  <div class="ring-wrap" id="ringWrap">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <circle class="track" cx="100" cy="100" r="92"></circle>
+      <circle class="prog" id="prog" cx="100" cy="100" r="92"></circle>
+    </svg>
+    <div class="time">
+      <div class="num" id="clock">25:00</div>
+      <div class="meta" id="roundInfo">第 1 轮 · 共 4 轮</div>
+    </div>
+  </div>
+
+  <div class="dots" id="dots"></div>
+
+  <div class="controls">
+    <button class="main" id="startBtn">开始专注</button>
+    <button class="ghost" id="skipBtn" title="跳到下一阶段 (S)">跳过 ››</button>
+    <button class="ghost" id="resetBtn" title="重置 (R)">重置</button>
+  </div>
+
+  <div class="stats">
+    今日专注 <b id="todayMin">0</b> 分钟 · 共 <b id="todayCount">0</b> 个番茄 · 累计 <b id="totalMin">0</b> 分钟
+  </div>
+  <div class="tips" id="tips"></div>
+</div>
+
+<button class="gear" id="gearBtn" title="设置 (,)" aria-label="设置">
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#eef1f7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.9 4.6a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.3 8.9v.01A1.7 1.7 0 0 0 20.86 9.94H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"/></svg>
+</button>
+<div class="settings" id="settings">
+  <h3>设置</h3>
+  <label class="field">专注时长 <input type="number" id="cfgFocus" min="1" max="120" value="25"> 分钟</label>
+  <label class="field">短休息 <input type="number" id="cfgShort" min="1" max="60" value="5"> 分钟</label>
+  <label class="field">长休息 <input type="number" id="cfgLong" min="1" max="90" value="15"> 分钟</label>
+  <label class="field">长休息间隔 <input type="number" id="cfgRounds" min="1" max="12" value="4"> 轮</label>
+  <label class="field">结束提示音 <input type="checkbox" id="cfgSound" checked></label>
+  <div class="hint">快捷键：空格 开始/暂停 · S 跳过 · R 重置 · F 全屏 · , 设置<br>数据只存在本机浏览器里。</div>
+</div>
+
+<div id="flash"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 配置 ================= */
+const LS_CFG = 'pomodoro.cfg.v1';
+const LS_STATS = 'pomodoro.stats.v1';
+const DEFAULTS = { focus: 25, short: 5, long: 15, rounds: 4, sound: true };
+const MODES = {
+  focus: { label: 'Focus · 专注', tips: ['一次只做一件事', '关掉通知，把手机放远一点', '卡住了？先把下一步写下来', '深度工作的价值，在于不被切碎'], bg: ['#ff5f6d','#2b1055'] },
+  short: { label: 'Break · 短休息', tips: ['站起来，看看远处', '喝口水', '别刷短视频，真的', '闭眼 3 分钟也算数'], bg: ['#3ddc97','#0f3d5c'] },
+  long:  { label: 'Long Break · 长休息', tips: ['走两圈，活动肩颈', '奖励自己一下', '复盘刚才那一轮：哪件事最值得做？'], bg: ['#6ea8fe','#1b1d3a'] }
+};
+
+const load = (k, d) => {
+  try { const v = JSON.parse(localStorage.getItem(k)); return v ? Object.assign({}, d, v) : Object.assign({}, d); }
+  catch { return Object.assign({}, d); }
+};
+let cfg = load(LS_CFG, DEFAULTS);
+let stats = load(LS_STATS, { totalSec: 0, todayMin: 0, todayCount: 0, today: todayKey() });
+
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+if (stats.today !== todayKey()) { stats.today = todayKey(); stats.todayMin = 0; stats.todayCount = 0; }
+const saveStats = () => localStorage.setItem(LS_STATS, JSON.stringify(stats));
+const saveCfg = () => localStorage.setItem(LS_CFG, JSON.stringify(cfg));
+
+/* ================= 状态 ================= */
+const st = {
+  mode: 'focus',
+  remain: cfg.focus * 60,     // 秒（浮点，用时间戳计算更准）
+  running: false,
+  round: 0,                    // 已完成专注轮数（0..rounds）
+  deadline: 0,                 // 运行中：预计结束时间戳(ms)
+  raf: 0,
+  phaseSec: cfg.focus * 60,    // 当前阶段总秒数
+};
+
+const $ = id => document.getElementById(id);
+const prog = $('prog');
+const CIRC = 2 * Math.PI * 92;
+prog.style.strokeDasharray = CIRC + ' ' + CIRC;
+
+function phaseSeconds(mode){
+  return (mode === 'focus' ? cfg.focus : mode === 'short' ? cfg.short : cfg.long) * 60;
+}
+
+const fmt = s => {
+  s = Math.max(0, Math.ceil(s));
+  return String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+};
+
+/* ================= 渲染 ================= */
+let lastSec = -1;
+let statMode = null;
+
+function render(){
+  const remain = st.running ? Math.max(0, (st.deadline - Date.now()) / 1000) : st.remain;
+  const sec = Math.ceil(remain);
+  if (sec !== lastSec) {
+    $('clock').textContent = fmt(remain);
+    document.title = (st.running ? fmt(remain) + ' · ' : '') + MODES[st.mode].label.split(' · ')[1] + ' · 番茄钟';
+    lastSec = sec;
+  }
+  const ratio = st.phaseSec > 0 ? Math.min(1, remain / st.phaseSec) : 0;
+  prog.style.strokeDashoffset = String(CIRC * (1 - ratio));
+  $('mode').textContent = MODES[st.mode].label;
+  const total = cfg.rounds;
+  $('roundInfo').textContent = st.mode === 'focus'
+    ? `第 ${Math.min(st.round + 1, total)} 轮 · 共 ${total} 轮`
+    : `已完成 ${st.round} / ${total} 轮`;
+  $('startBtn').textContent = st.running
+    ? '暂停'
+    : (remain < st.phaseSec - 0.5 ? '继续' : (st.mode === 'focus' ? '开始专注' : '开始休息'));
+  $('stage').classList.toggle('pulse', st.running);
+
+  // 进度点
+  const dots = $('dots');
+  if (dots.children.length !== total) {
+    dots.innerHTML = '';
+    for (let i = 0; i < total; i++) { const d = document.createElement('div'); d.className = 'dot'; dots.appendChild(d); }
+  }
+  [...dots.children].forEach((d, i) => d.classList.toggle('done', i < st.round));
+
+  // 配色
+  const [a, b] = MODES[st.mode].bg;
+  const bg = statMode === st.mode ? '' : `radial-gradient(circle at 30% 20%, ${a}55, transparent 60%), radial-gradient(circle at 75% 80%, ${b}, #07080c 75%)`;
+  if (bg) { $('aurora').style.background = bg; statMode = st.mode; }
+
+  // 统计
+  $('todayMin').textContent = Math.round(stats.todayMin);
+  $('todayCount').textContent = stats.todayCount;
+  $('totalMin').textContent = Math.round(stats.totalSec / 60);
+}
+
+/* ================= 主循环 ================= */
+function tick(){
+  if (!st.running) return;
+  const remain = (st.deadline - Date.now()) / 1000;
+  // 累计专注时长（每秒）
+  if (st.mode === 'focus') {
+    const now = Date.now();
+    const dt = Math.min(1.2, (now - (tick._last || now)) / 1000);
+    tick._last = now;
+    stats.totalSec += dt;
+    stats.todayMin += dt / 60;
+  }
+  if (remain <= 0) { st.remain = 0; render(); return complete(); }
+  st.remain = remain;
+  render();
+  st.raf = requestAnimationFrame(tick);
+}
+
+function start(){
+  if (st.running) return;
+  st.running = true;
+  st.deadline = Date.now() + st.remain * 1000;
+  tick._last = Date.now();
+  st.raf = requestAnimationFrame(tick);
+  render();
+}
+function pause(){
+  if (!st.running) return;
+  st.remain = Math.max(0, (st.deadline - Date.now()) / 1000);
+  st.running = false;
+  cancelAnimationFrame(st.raf);
+  render();
+}
+const toggle = () => st.running ? pause() : start();
+
+function reset(){
+  pause();
+  st.round = 0;
+  switchMode('focus', true);
+  toast('已重置');
+}
+
+function switchMode(mode, silent){
+  st.mode = mode;
+  st.phaseSec = phaseSeconds(mode);
+  st.remain = st.phaseSec;
+  lastSec = -1;
+  $('tips').textContent = MODES[mode].tips[Math.floor(Math.random() * MODES[mode].tips.length)];
+  if (!silent) render();
+  saveStats();
+}
+
+/* 完成当前阶段 */
+function complete(){
+  st.running = false;
+  cancelAnimationFrame(st.raf);
+  if (st.mode === 'focus') {
+    st.round++;
+    stats.todayCount++;
+    saveStats();
+    ding('focus');
+    flash();
+    toast('🍅 一个番茄完成，去休息一下');
+    // 弹标题闪烁吸引注意
+    if (st.round >= cfg.rounds) switchMode('long');   // 长休息结束后再清零轮数
+    else switchMode('short');
+  } else {
+    ding('break');
+    flash();
+    toast('休息结束，回到专注');
+    if (st.mode === 'long') st.round = 0;
+    switchMode('focus');
+  }
+  render();
+}
+
+/* 跳过：专注阶段不算完成 */
+function skip(){
+  pause();
+  if (st.mode === 'focus') { switchMode('short'); toast('已跳过本轮专注'); }
+  else {
+    if (st.mode === 'short' && st.round >= cfg.rounds) st.round = 0;
+    switchMode('focus');
+    toast('已跳过休息');
+  }
+  render();
+}
+
+/* ================= 音效（WebAudio，无需素材） ================= */
+let ac = null;
+function beep(freq, t0, dur, gain, type){
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(ac.destination);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function ding(kind){
+  if (!cfg.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    if (ac.state === 'suspended') ac.resume();
+    const t = ac.currentTime + 0.02;
+    if (kind === 'focus') {
+      // 上行三音：任务完成
+      [[523.25, 0], [659.25, 0.16], [784.0, 0.32], [1046.5, 0.48]].forEach(([f, d]) => beep(f, t + d, 0.6, 0.18, 'sine'));
+    } else {
+      [[784.0, 0], [587.33, 0.18]].forEach(([f, d]) => beep(f, t + d, 0.5, 0.16, 'triangle'));
+    }
+  } catch (e) { /* 静默降级 */ }
+}
+function click(ok){
+  if (!cfg.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    beep(ok ? 660 : 440, ac.currentTime + 0.01, 0.08, 0.06, 'square');
+  } catch (e) {}
+}
+
+/* ================= 小 UI ================= */
+function flash(){
+  const f = $('flash');
+  f.classList.add('on');
+  setTimeout(() => f.classList.remove('on'), 90);
+}
+function toast(msg){
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+/* ================= 绑定 ================= */
+$('startBtn').onclick = () => { click(true); toggle(); };
+$('skipBtn').onclick = () => { click(false); skip(); };
+$('resetBtn').onclick = () => { click(false); reset(); };
+
+const toggleSettings = () => {
+  $('settings').classList.toggle('open');
+  $('gearBtn').classList.toggle('active');
+};
+$('gearBtn').onclick = toggleSettings;
+
+const bindCfg = (id, key, isCheck) => {
+  const el = $(id);
+  if (isCheck) el.checked = !!cfg[key];
+  else el.value = cfg[key];
+  el.onchange = () => {
+    let v = isCheck ? el.checked : parseInt(el.value, 10);
+    if (!isCheck) { v = Math.max(1, Math.min(120, v || DEFAULTS[key])); el.value = v; }
+    cfg[key] = v;
+    saveCfg();
+    if (!st.running && key !== 'rounds' && key !== 'sound') { st.phaseSec = phaseSeconds(st.mode); st.remain = st.phaseSec; lastSec = -1; render(); }
+    if (key === 'rounds') render();
+  };
+};
+bindCfg('cfgFocus', 'focus');
+bindCfg('cfgShort', 'short');
+bindCfg('cfgLong', 'long');
+bindCfg('cfgRounds', 'rounds');
+bindCfg('cfgSound', 'sound', true);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); click(true); toggle(); }
+  else if (e.key === 's' || e.key === 'S') skip();
+  else if (e.key === 'r' || e.key === 'R') reset();
+  else if (e.key === ',') toggleSettings();
+  else if (e.key === 'f' || e.key === 'F') {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
+    else document.exitFullscreen?.();
+  }
+});
+
+// 标签页切回时校正（后台标签 rAF 会被节流）
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && st.running) {
+    tick._last = Date.now();
+    cancelAnimationFrame(st.raf);
+    st.raf = requestAnimationFrame(tick);
+  }
+});
+
+/* 启动 */
+switchMode('focus', true);
+render();
+// 今日日期变了就清零今日统计
+setInterval(() => {
+  if (stats.today !== todayKey()) { stats.today = todayKey(); stats.todayMin = 0; stats.todayCount = 0; render(); saveStats(); }
+}, 60000);
+
+/* 调试钩子（便于自动化验证，不影响使用） */
+window.__pomodoro = { st, cfg, stats, start, pause, toggle, reset, skip, complete, tick, render };
+</script>
+</body>
+</html>
