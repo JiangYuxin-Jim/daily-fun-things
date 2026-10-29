@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-30",
+  "day": "Day 00",
+  "name": "文本手术刀",
+  "slug": "txt-toolkit",
+  "desc": "一键清洗从 PDF/网页复制来的脏中文文本，顺带统计字数",
+  "type": "工具",
+  "stack": "HTML/JS"
+}
