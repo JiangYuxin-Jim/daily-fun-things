@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>配色实验室 · Palette Lab</title>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#12151d; --fg:#eef1f7; --dim:#8a93a6; --line:rgba(255,255,255,.09);
+    --ok:#3ddc97; --bad:#ff6b5e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(90,110,255,.14), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(255,110,180,.10), transparent 60%),
+      var(--bg);
+    color:var(--fg);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;justify-content:space-between;margin-bottom:20px}
+  h1{margin:0;font-size:24px;letter-spacing:.5px}
+  h1 small{font-weight:400;color:var(--dim);font-size:13px;margin-left:8px;letter-spacing:0}
+  .hint{color:var(--dim);font-size:13px}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+  button{
+    font:inherit;font-size:13px;color:var(--fg);background:rgba(255,255,255,.06);
+    border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer;
+    transition:.18s transform,.18s background,.18s border-color;
+  }
+  button:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.22)}
+  button:active{transform:scale(.96)}
+  button.primary{background:linear-gradient(135deg,#6c7bff,#b06bff);border:none;font-weight:600}
+  button.primary:hover{filter:brightness(1.12)}
+  select{
+    font:inherit;font-size:13px;color:var(--fg);background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;
+  }
+  .spacer{flex:1}
+
+  /* 色板 */
+  .palette{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}
+  @media(max-width:720px){.palette{grid-template-columns:repeat(2,1fr)}}
+  .swatch{
+    position:relative;border-radius:16px;overflow:hidden;height:190px;cursor:pointer;
+    border:1px solid var(--line);display:flex;flex-direction:column;justify-content:space-between;
+    padding:14px;transition:.25s transform,.25s box-shadow;
+    animation:pop .45s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(14px) scale(.94)}to{opacity:1;transform:none}}
+  .swatch:hover{transform:translateY(-4px);box-shadow:0 14px 34px rgba(0,0,0,.45)}
+  .swatch.locked::after{
+    content:"🔒";position:absolute;top:10px;right:12px;font-size:14px;opacity:.85;
+  }
+  .swatch .hex{font:600 17px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px}
+  .swatch .meta{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
+  .swatch .role{font-size:12px;opacity:.75}
+  .swatch .lockbtn{
+    border:1px solid currentColor;background:transparent;color:inherit;opacity:.65;
+    padding:2px 8px;font-size:11px;border-radius:999px;
+  }
+  .swatch .lockbtn:hover{opacity:1;background:rgba(255,255,255,.12)}
+  .swatch .copy-tip{
+    position:absolute;inset:auto 0 0 0;text-align:center;font-size:12px;
+    padding:6px;background:rgba(0,0,0,.55);color:#fff;transform:translateY(110%);transition:.2s;
+  }
+  .swatch:hover .copy-tip{transform:none}
+
+  /* 安全对比 */
+  .a11y{margin-bottom:16px;padding:0;overflow:hidden}
+  .a11y h2{padding:16px 16px 0;margin:0 0 12px}
+  .a11y-head{padding:0 16px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+  .a11y-head .checks{display:flex;flex-wrap:wrap;gap:8px}
+  .badge{font-size:11px;padding:3px 9px;border-radius:999px;font-weight:600}
+  .b-aaa{background:rgba(61,220,151,.16);color:var(--ok)}
+  .b-aa{background:rgba(255,209,102,.16);color:#ffd166}
+  .b-fail{background:rgba(255,107,94,.16);color:var(--bad)}
+  .wcag-verdict{font-size:12px;color:var(--dim)}
+  .wcag-verdict.ok{color:var(--ok)}
+  .wcag-verdict.warn{color:#ffd166}
+  .ui-preview{padding:18px 20px 22px;border-top:1px solid var(--line);transition:background .35s,color .35s}
+  .pv-nav{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+  .pv-nav b{font-size:17px;letter-spacing:.5px}
+  .pv-nav a{margin-left:16px;font-size:13px;text-decoration:none;opacity:.9;cursor:pointer}
+  .pv-nav a:hover{text-decoration:underline}
+  .pv-hero{padding:22px 0 0}
+  .pv-hero h3{margin:0 0 8px;font-size:26px;letter-spacing:.3px}
+  .pv-hero p{margin:0 0 18px;font-size:14px;max-width:52ch}
+  .pv-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:20px}
+  .pv-btn{border:none;border-radius:10px;padding:10px 20px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.2s background}
+  .pv-btn.ghost{background:transparent;border:1px solid}
+  .pv-link{font-size:13px;text-decoration:none;margin-left:4px}
+  .pv-link:hover{text-decoration:underline}
+  .pv-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .pv-card{border-radius:12px;padding:14px;font-size:12px;display:flex;flex-direction:column;gap:4px}
+  .pv-card b{font-size:14px}
+  .pv-card.outline{background:transparent;border:1px solid}
+  @media(max-width:560px){.pv-hero h3{font-size:21px}}
+  .scale-card{margin-bottom:16px}
+  .scale{display:grid;grid-template-columns:repeat(10,1fr);gap:6px}
+  .scale .step{height:64px;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;
+    font:600 11px/1 ui-monospace,Menlo,monospace;padding-bottom:6px;cursor:pointer;transition:.15s transform}
+  .scale .step:hover{transform:translateY(-3px)}
+  @media(max-width:640px){.scale{grid-template-columns:repeat(5,1fr)}}
+  .footer-note{color:var(--dim);font-size:12px;margin-top:18px;line-height:1.8}
+  kbd{background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11px}
+  .toast{
+    position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);opacity:0;
+    background:#fff;color:#111;font-size:13px;font-weight:600;padding:9px 18px;border-radius:999px;
+    transition:.22s;pointer-events:none;z-index:99;box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>配色实验室<small>Palette Lab · 一键出好看的五色方案</small></h1>
+    <div class="hint">点卡片复制 Hex · 点 🔒 锁定喜欢的那一色</div>
+  </header>
+
+  <div class="toolbar">
+    <button class="primary" id="gen">🎲 随机配色 <kbd>Space</kbd></button>
+    <select id="scheme" title="配色生成规则">
+      <option value="analogic" selected>和谐 · 邻近色</option>
+      <option value="complement">强对比 · 互补色</option>
+      <option value="triad">平衡 · 三角色</option>
+      <option value="mono">极简 · 同色阶</option>
+      <option value="pastel">温柔 · 莫兰迪低饱和</option>
+      <option value="vivid">炸裂 · 高饱和霓虹</option>
+      <option value="random">自由 · 随机</option>
+    </select>
+    <select id="harmony" title="只保留互不打架的颜色">
+      <option value="none">不过滤</option>
+      <option value="wcag" selected>只出 WCAG AA 可用搭配</option>
+    </select>
+    <div class="spacer"></div>
+    <button id="export">📋 复制为 CSS 变量</button>
+    <button id="exportTailwind">复制 Tailwind 配置</button>
+  </div>
+
+  <div class="palette" id="palette"></div>
+
+  <div class="card a11y">
+    <h2>UI 实况 + 可读性检查</h2>
+    <div class="a11y-body" id="a11yList"></div>
+  </div>
+
+  <div class="card scale-card">
+    <h2>主色色阶（点击任意台阶复制）</h2>
+    <div class="scale" id="scale"></div>
+    <div class="footer-note" style="margin-top:10px">按 50 → 900 生成 10 级色阶，做按钮 hover、边框、分割线时直接取用</div>
+  </div>
+
+  <div class="footer-note">
+    对比度公式基于 WCAG 2.1 相对亮度；4.5:1 为 AA 正文标准，7:1 为 AAA。<br>
+    纯前端单文件，双击即用，不联网。本地收藏会存在浏览器 localStorage 里。
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const N = 5;
+  const ROLE_NAMES = ['主色', '辅色', '点缀', '背景', '文字'];
+  const SCHEMES = {
+    analogic:   (h) => [h, h + 28, h - 30, h + 14, h - 10],
+    complement: (h) => [h, h + 180, h + 150, h + 20, h + 200],
+    triad:      (h) => [h, h + 120, h + 240, h + 60, h + 300],
+    mono:       (h) => [h, h, h, h, h],
+    pastel:     (h) => [h, h + 40, h - 45, h + 15, h - 5],
+    vivid:      (h) => [h, h + 90, h + 180, h + 20, h + 270],
+    random:     () => [0,1,2,3,4].map(() => Math.random() * 360)
+  };
+  // 每个方案的饱和/亮度区间：[主色 s 范围, 主色 l 范围]
+  const TONE = {
+    analogic:   { s:[42,70], l:[34,60] },
+    complement: { s:[55,85], l:[38,62] },
+    triad:      { s:[50,80], l:[36,62] },
+    mono:       { s:[45,78], l:[22,82] },
+    pastel:     { s:[22,42], l:[52,72] },
+    vivid:      { s:[78,100], l:[38,56] },
+    random:     { s:[30,90], l:[30,68] }
+  };
+  const state = {
+    colors: [],                                  // [{h,s,l,hex}]
+    locked: [false,false,false,false,false],
+    weights: []
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const rand = (a,b) => a + Math.random()*(b-a);
+  const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+  function hslToHex(h,s,l){
+    h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+    const k = n => (n + h/30) % 12;
+    const a = s * Math.min(l, 1-l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+    const to = x => Math.round(255*x).toString(16).padStart(2,'0');
+    return '#' + to(f(0)) + to(f(8)) + to(f(4));
+  }
+  function hexToRgb(hex){
+    const v = hex.replace('#','');
+    return [0,2,4].map(i => parseInt(v.substr(i,2),16));
+  }
+  function luminance(hex){
+    const [r,g,b] = hexToRgb(hex).map(c => {
+      const s = c/255;
+      return s <= 0.03928 ? s/12.92 : Math.pow((s+0.055)/1.055, 2.4);
+    });
+    return 0.2126*r + 0.7152*g + 0.0722*b;
+  }
+  function contrast(a,b){
+    const l1 = luminance(a), l2 = luminance(b);
+    const hi = Math.max(l1,l2), lo = Math.min(l1,l2);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+  function readableOn(hex){
+    return contrast(hex, '#000000') >= contrast(hex, '#ffffff') ? '#000' : '#fff';
+  }
+  // 向白色/黑色退让饱和度亮度，用于 hover / 禁用态
+  function shift(hex, amt){
+    const [r,g,b] = hexToRgb(hex).map(v => clamp(Math.round(v + (amt>0?255-v:v)*amt), 0, 255));
+    return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+  }
+
+  // 生成一组颜色
+  function generate(){
+    const scheme = $('scheme').value;
+    const hueBase = Math.random()*360;
+    const tone = TONE[scheme] || TONE.random;
+    state.weights = [0,1,2,3,4].map(() => rand(0.6, 1.6));
+
+    // 按“变量空间”生成再择优：多次采样，用多目标评分挑最协调 / 对比最足的那组
+    const buildOnce = () => {
+      const hues = SCHEMES[scheme](hueBase);
+      return hues.map((h, i) => {
+        if (state.locked[i] && state.colors[i]) return state.colors[i];
+        let s, l;
+        if (scheme === 'mono') {
+          s = rand(tone.s[0], tone.s[1]);
+          l = rand(tone.l[0], tone.l[1]);
+        } else if (i === 3 || i === 4) {
+          s = rand(6, 20);
+          l = i === 3 ? rand(8, 20) : rand(90, 97);
+        } else {
+          s = rand(tone.s[0], tone.s[1]);
+          l = rand(tone.l[0], tone.l[1]);
+        }
+        l = clamp(l, 5, 97);
+        return { h: ((h%360)+360)%360, s, l, hex: hslToHex(h, s, l) };
+      });
+    };
+
+    // 文字/背景锁定策略：没被用户锁住就强制“深底浅字”
+    const fixBase = (arr) => {
+      if (!state.locked[4]) arr[4] = pickLight(arr[4].h, 92, 97);
+      if (!state.locked[3]) arr[3] = pickDark(arr[3].h, 8, 18);
+      return arr;
+    };
+
+    // 调整主色：在保证与背景/文字对比够用的前提下，保持明度贴近原色
+    const tuneMain = (arr, idx) => {
+      let best = null, bestScore = -1;
+      for (let t = 0; t < 24; t++) {
+        const c = { h: arr[idx].h, s: rand(tone.s[0], tone.s[1]), l: rand(tone.l[0], Math.min(tone.l[1], 64)) };
+        c.hex = hslToHex(c.h, c.s, c.l);
+        const score = Math.min(contrast(c.hex, arr[3].hex), contrast(arr[4].hex, c.hex));
+        const keep = 1 - Math.abs(c.l - arr[idx].l) / 100;
+        const total = score + keep * 0.6;
+        if (total > bestScore) { bestScore = total; best = c; }
+      }
+      arr[idx] = best;
+      return arr;
+    };
+
+    let candidate = fixBase(buildOnce());
+    const badAccent = () => {
+      for (let k = 1; k <= 2; k++) {
+        if (state.locked[k]) continue;
+        if (contrast(candidate[4].hex, candidate[k].hex) < 3) tuneMain(candidate, k);
+      }
+    };
+
+    if ($('harmony').value === 'wcag') {
+      // 主色：先试自然色，不行就搜更深的版本
+      if (!state.locked[0] && contrast(candidate[0].hex, candidate[3].hex) < 3) tuneMain(candidate, 0);
+      badAccent();
+      // 仍有个别对不上（比如互补色天生灰）就再多抽几轮整体重来
+      let round = 0;
+      while (!passesWcag(candidate) && round < 40) {
+        round++;
+        const trial = fixBase(buildOnce());
+        // 越往后越往深色区收缩，保证一定能收敛
+        if (round > 12) trial.forEach((c, i) => { if (i < 3 && !state.locked[i]) { c.l = Math.min(c.l, 56 - (round - 12)); c.hex = hslToHex(c.h, c.s, c.l); } });
+        if (!state.locked[0]) tuneMain(trial, 0);
+        candidate = trial;
+        badAccent();
+      }
+    } else {
+      badAccent();
+    }
+
+    state.colors = candidate;
+    render();
+    saveHistory();
+  }
+
+  function pickDark(h, lmin, lmax){
+    const c = { h, s: rand(8, 20), l: rand(lmin, lmax) };
+    c.hex = hslToHex(c.h, c.s, c.l);
+    return c;
+  }
+  function pickLight(h, lmin, lmax){
+    const c = { h, s: rand(6, 16), l: rand(lmin, lmax) };
+    c.hex = hslToHex(c.h, c.s, c.l);
+    return c;
+  }
+
+  // AA 过滤：文字/背景 ≥ 4.5（正文）；主色/文字/辅色 × 背景 作为大标题与图标要 ≥ 3
+  function passesWcag(c){
+    return contrast(c[4].hex, c[3].hex) >= 4.5
+        && contrast(c[0].hex, c[3].hex) >= 3
+        && contrast(c[4].hex, c[0].hex) >= 3
+        && contrast(c[4].hex, c[1].hex) >= 3;
+  }
+
+  // ---------- 渲染 ----------
+  function render(){
+    const colors = state.colors;
+    const pal = $('palette');
+    pal.innerHTML = '';
+    colors.forEach((c, i) => {
+      const el = document.createElement('div');
+      el.className = 'swatch' + (state.locked[i] ? ' locked' : '');
+      el.style.background = c.hex;
+      el.style.color = readableOn(c.hex);
+      el.style.animationDelay = (i*55) + 'ms';
+      el.innerHTML = `
+        <div class="meta">
+          <span class="role">${i+1} · ${ROLE_NAMES[i]}</span>
+          <button class="lockbtn" data-lock="${i}">${state.locked[i]?'已锁':'锁定'}</button>
+        </div>
+        <div>
+          <div class="hex">${c.hex.toUpperCase()}</div>
+          <div class="role">HSL(${Math.round(c.h)} ${Math.round(c.s)}% ${Math.round(c.l)}%)</div>
+        </div>
+        <div class="copy-tip">点击复制</div>`;
+      el.addEventListener('click', (e) => {
+        if (e.target.dataset.lock !== undefined) {
+          const idx = +e.target.dataset.lock;
+          state.locked[idx] = !state.locked[idx];
+          renderSwatchLock(el, idx);
+          return;
+        }
+        copy(c.hex.toUpperCase());
+      });
+      pal.appendChild(el);
+    });
+    renderA11y();
+    renderScale();
+  }
+
+  // 由主色生成 50~900 色阶（L 从 97 到 15），点击复制
+  function renderScale(){
+    const box = $('scale');
+    box.innerHTML = '';
+    const steps = [50,100,200,300,400,500,600,700,800,900];
+    const src0 = state.colors[0];
+    const lStart = 96, lEnd = 14, sStart = Math.min(src0.s, 40), sEnd = Math.min(src0.s + 10, 90);
+    steps.forEach((name, i) => {
+      const t = i / (steps.length - 1);
+      const l = lStart + (lEnd - lStart) * Math.pow(t, 1.15);
+      const s = sStart + (sEnd - sStart) * t;
+      const hex = hslToHex(src0.h, s, l).toUpperCase();
+      const el = document.createElement('div');
+      el.className = 'step';
+      el.style.background = hex;
+      el.style.color = readableOn(hex);
+      el.textContent = name;
+      el.title = `brand-${name} · ${hex}`;
+      el.addEventListener('click', () => copy(hex));
+      box.appendChild(el);
+    });
+  }
+
+  function renderSwatchLock(el, idx){
+    el.classList.toggle('locked', state.locked[idx]);
+    const b = el.querySelector('.lockbtn');
+    if (b) b.textContent = state.locked[idx] ? '已锁' : '锁定';
+  }
+
+  function renderA11y(){
+    const list = $('a11yList');
+    list.innerHTML = '';
+    const c = state.colors;
+    const textBg = contrast(c[4].hex, c[3].hex);
+    const mainBg = contrast(c[0].hex, c[3].hex);
+    const onMain = c[4].hex;                 // 按钮文字统一用“文字”色，保证整站一致
+    const onMainRatio = contrast(onMain, c[0].hex);
+
+    const head = document.createElement('div');
+    head.className = 'a11y-head';
+    head.innerHTML = `
+      <div class="checks">
+        <span class="badge ${textBg>=7?'b-aaa':textBg>=4.5?'b-aa':'b-fail'}">正文对比 ${textBg.toFixed(2)}:1</span>
+        <span class="badge ${mainBg>=4.5?'b-aaa':mainBg>=3?'b-aa':'b-fail'}">主色/背景 ${mainBg.toFixed(2)}:1</span>
+        <span class="badge ${onMainRatio>=4.5?'b-aaa':'b-fail'}">文字在主色上 ${onMainRatio.toFixed(2)}:1</span>
+      </div>
+      <div class="wcag-verdict ${passesWcag(c)?'ok':'warn'}">
+        ${passesWcag(c) ? '✓ 这组配色通过 WCAG AA，可直接上生产' : '⚠ 这组配色有对比度短板，建议锁定主色再随机'}
+      </div>`;
+    list.appendChild(head);
+
+    const preview = document.createElement('div');
+    preview.className = 'ui-preview';
+    preview.style.background = c[3].hex;
+    preview.style.color = c[4].hex;
+    preview.innerHTML = `
+      <div class="pv-nav">
+        <b style="color:${c[4].hex}">Orbit</b>
+        <span>
+          <a style="color:${c[1].hex}">产品</a>
+          <a style="color:${c[1].hex}">价格</a>
+          <a style="color:${c[1].hex}">文档</a>
+        </span>
+      </div>
+      <div class="pv-hero">
+        <h3 style="color:${c[4].hex}">让创意先跑起来</h3>
+        <p style="color:${c[4].hex};opacity:.82">这组配色能不能直接用在落地页？按钮、卡片、链接都在下面对话。</p>
+        <div class="pv-actions">
+          <button class="pv-btn" style="background:${c[0].hex};color:${onMain}"
+            onmouseover="this.style.background=shift('${c[0].hex}',-0.15)"
+            onmouseout="this.style.background='${c[0].hex}'">立即开始</button>
+          <button class="pv-btn ghost" style="color:${c[4].hex};border-color:${c[4].hex}">了解更多</button>
+          <a class="pv-link" style="color:${c[2].hex}">查看定价 →</a>
+        </div>
+        <div class="pv-cards">
+          <div class="pv-card" style="background:${c[1].hex};color:${readableOn(c[1].hex)}">
+            <b>速度</b><span>3 分钟出稿</span>
+          </div>
+          <div class="pv-card" style="background:${c[2].hex};color:${readableOn(c[2].hex)}">
+            <b>风格</b><span>一致而不单调</span>
+          </div>
+          <div class="pv-card outline" style="border-color:${c[0].hex};color:${c[4].hex}">
+            <b style="color:${c[0].hex}">可读</b><span>实时 WCAG 检测</span>
+          </div>
+        </div>
+      </div>`;
+    list.appendChild(preview);
+  }
+  window.shift = shift;
+
+  // ---------- 交互 ----------
+  let toastTimer;
+  function toast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1400);
+  }
+  function copy(text){
+    const done = () => toast('已复制 ' + text);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+    } else fallbackCopy(text, done);
+  }
+  function fallbackCopy(text, done){
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e) { toast('复制失败，请手动选择'); }
+    document.body.removeChild(ta);
+  }
+
+  function exportCss(){
+    const lines = state.colors.map((c,i) => `  --color-${['primary','secondary','accent','bg','text'][i]}: ${c.hex.toUpperCase()};`);
+    copy(`:root {\n${lines.join('\n')}\n}`);
+  }
+  function exportTailwind(){
+    const keys = ['primary','secondary','accent','background','foreground'];
+    const body = state.colors.map((c,i) => `          '${keys[i]}': '${c.hex.toUpperCase()}',`).join('\n');
+    copy(`// tailwind.config.js (Tailwind 3)\nmodule.exports = {\n  theme: {\n    extend: {\n      colors: {\n        brand: {\n${body}\n        },\n      },\n    },\n  },\n};`);
+  }
+
+  // 历史记录（最近 12 组），存在 localStorage
+  const HKEY = 'palette-lab-history-v1';
+  function saveHistory(){
+    try {
+      const prev = JSON.parse(localStorage.getItem(HKEY) || '[]');
+      const item = { t: Date.now(), colors: state.colors.map(c => c.hex) };
+      prev.unshift(item);
+      localStorage.setItem(HKEY, JSON.stringify(prev.slice(0, 12)));
+    } catch(e){}
+  }
+
+  // ---------- 初始化 ----------
+  $('gen').addEventListener('click', generate);
+  $('export').addEventListener('click', exportCss);
+  $('exportTailwind').addEventListener('click', exportTailwind);
+  $('scheme').addEventListener('change', generate);
+  $('harmony').addEventListener('change', generate);
+  document.addEventListener('keydown', (e) => {
+    const tag = e.target.tagName;
+    if (tag === 'SELECT' || tag === 'BUTTON' || tag === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); generate(); }
+    if (e.code === 'KeyR' && !e.metaKey && !e.ctrlKey) generate();
+  });
+
+  generate();
+  // 暴露给自动化测试用
+  window.__palette = { state, generate, contrast, luminance, hslToHex, passesWcag };
+})();
+</script>
+</body>
+</html>

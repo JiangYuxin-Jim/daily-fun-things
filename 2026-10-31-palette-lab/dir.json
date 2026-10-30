@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-31",
+  "day": "Day 02",
+  "name": "配色实验室",
+  "slug": "palette-lab",
+  "desc": "一键生成和谐五色方案，自带 WCAG 对比度检测、UI 实况预览和主色色阶，复制即可用",
+  "type": "工具",
+  "stack": "HTML/JS"
+}
