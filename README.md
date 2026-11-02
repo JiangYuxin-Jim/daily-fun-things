@@ -13,6 +13,7 @@
 | 2026-10-30 | Day 01 | [沉浸式番茄钟 · pomodoro](./2026-10-30-pomodoro) | 会呼吸的极简番茄钟，自动切换专注/休息，结束提示音 + 每日统计 | 工具 | HTML/JS |
 | 2026-10-31 | Day 02 | [配色实验室 · palette-lab](./2026-10-31-palette-lab) | 一键生成五色配色方案，自带 WCAG 对比度检测、UI 实况预览与主色色阶 | 工具 | HTML/JS |
 | 2026-11-03 | Day 03 | [二维码工坊 · qr-studio](./2026-11-03-qr-studio) | 纯本地生成二维码，支持中文与自定义配色留白，导出 PNG/SVG，内容不上传 | 工具 | HTML/JS |
+| 2026-11-03 | Day 04 | [墨池 · md-editor](./2026-11-03-md-editor) | 双击即用的 Markdown 实时编辑器：边写边排版、大纲跳转、字数统计，可导出 .md / 单文件 HTML | 工具 | HTML/JS + marked |
 
 > 完整 30 天清单见 [ROADMAP.md](./ROADMAP.md)
 

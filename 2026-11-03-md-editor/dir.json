@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-03",
+  "day": "Day 04",
+  "name": "墨池 · Markdown 实时编辑器",
+  "slug": "2026-11-03-md-editor",
+  "desc": "本地运行的 Markdown 实时编辑器：边写边排版，大纲跳转、字数统计、自动保存在浏览器，支持导入 / 导出 .md 与单文件 HTML",
+  "type": "工具",
+  "stack": "HTML/JS + marked(本地内置)"
+}

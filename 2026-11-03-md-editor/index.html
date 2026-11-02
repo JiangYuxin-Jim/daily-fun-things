@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>墨池 · Markdown 实时编辑器</title>
+<style>
+:root{
+  --paper:#fbfaf7; --ink:#1f2328; --muted:#6b7280; --line:#e6e2d9;
+  --accent:#0b6b5e; --accent-soft:#e3f1ee; --panel:#f5f3ee;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--sans);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+/* ---------- 顶栏 ---------- */
+header{
+  display:flex;align-items:center;gap:14px;padding:10px 16px;
+  border-bottom:1px solid var(--line);background:rgba(251,250,247,.92);
+  backdrop-filter:saturate(1.2) blur(8px);flex:0 0 auto;z-index:5;
+}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.02em}
+.brand .seal{
+  width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+  background:var(--ink);color:#fbfaf7;font-size:14px;font-weight:800;
+}
+.brand small{font-weight:500;color:var(--muted);font-size:12px}
+.spacer{flex:1}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{
+  border:0;background:none;font:inherit;font-size:13px;color:var(--muted);
+  padding:5px 12px;border-radius:7px;cursor:pointer;transition:.15s;
+}
+.seg button.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600}
+.btn{
+  border:1px solid var(--line);background:#fff;font:inherit;font-size:13px;
+  padding:6px 12px;border-radius:9px;cursor:pointer;color:var(--ink);transition:.15s;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.btn.primary{background:var(--ink);color:#fbfaf7;border-color:var(--ink)}
+.btn.primary:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+#saved{
+  font-size:12px;color:var(--accent);opacity:0;transition:opacity .3s;white-space:nowrap;
+}
+#saved.on{opacity:1}
+/* ---------- 工具栏 ---------- */
+#toolbar{
+  display:flex;align-items:center;gap:2px;padding:6px 12px;
+  border-bottom:1px solid var(--line);flex:0 0 auto;overflow-x:auto;
+}
+#toolbar button{
+  border:0;background:none;font:inherit;font-size:13px;color:#4b5563;
+  padding:5px 9px;border-radius:7px;cursor:pointer;white-space:nowrap;
+}
+#toolbar button:hover{background:var(--panel);color:var(--ink)}
+#toolbar .sep{width:1px;height:18px;background:var(--line);margin:0 6px;flex:0 0 auto}
+#toolbar .hint{margin-left:auto;font-size:11.5px;color:#9aa1ab;font-family:var(--mono)}
+/* ---------- 主体 ---------- */
+#wrap{flex:1 1 auto;display:grid;grid-template-columns:1fr 1fr;min-height:0}
+#outline{
+  width:0;overflow:hidden;border-right:1px solid var(--line);background:var(--paper);
+  transition:width .2s;
+}
+body.show-outline #outline{width:210px}
+body.show-outline #wrap{grid-template-columns:210px 1fr 1fr}
+.outline-head{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9aa1ab;padding:14px 16px 6px}
+.outline-item{
+  display:block;font-size:13px;color:#4b5563;text-decoration:none;padding:4px 16px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid transparent;
+}
+.outline-item:hover{background:var(--panel);color:var(--ink);border-left-color:var(--accent)}
+.outline-item.lv1{font-weight:600;color:var(--ink);padding-left:16px}
+.outline-item.lv2{padding-left:24px}
+.outline-item.lv3{padding-left:34px}
+.outline-item.lv4,.outline-item.lv5,.outline-item.lv6{padding-left:44px;font-size:12px}
+.outline-empty{font-size:12px;color:#9aa1ab;padding:8px 16px;line-height:1.6}
+
+.pane{position:relative;min-width:0;display:flex;flex-direction:column}
+.pane + .pane{border-left:1px solid var(--line)}
+#editor{
+  flex:1;width:100%;resize:none;border:0;outline:0;padding:28px 30px 120px;
+  font:15px/1.85 var(--mono);color:var(--ink);background:var(--paper);tab-size:2;
+}
+#editor::placeholder{color:#c2c5cb}
+#preview{
+  flex:1;overflow-y:auto;padding:28px 34px 120px;font-size:16px;line-height:1.78;
+}
+#preview > :first-child{margin-top:0}
+
+/* 预览排版 */
+#preview h1,#preview h2,#preview h3,#preview h4,#preview h5,#preview h6{
+  line-height:1.3;margin:1.5em 0 .55em;font-weight:700;scroll-margin-top:20px;
+}
+#preview h1{font-size:1.95em;letter-spacing:-.01em;padding-bottom:.28em;border-bottom:2px solid var(--ink)}
+#preview h2{font-size:1.42em;padding-bottom:.22em;border-bottom:1px solid var(--line)}
+#preview h3{font-size:1.16em}
+#preview h4{font-size:1em;color:#374151}
+#preview h1.ping,#preview h2.ping,#preview h3.ping,#preview h4.ping{animation:flash 1s ease}
+@keyframes flash{0%{background:var(--accent-soft)}100%{background:transparent}}
+#preview p{margin:0 0 1em}
+#preview a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(11,107,94,.28)}
+#preview a:hover{border-bottom-color:var(--accent)}
+#preview code{
+  background:#efece4;padding:.15em .38em;border-radius:4px;
+  font:.88em/1 var(--mono);color:#8a3d24;
+}
+#preview pre{
+  background:#1f2328;color:#e9e6df;padding:16px 18px;border-radius:10px;
+  overflow:auto;font-size:13.5px;line-height:1.65;margin:0 0 1.2em;
+}
+#preview pre code{background:none;color:inherit;padding:0;font-size:inherit}
+#preview blockquote{
+  margin:0 0 1.2em;padding:.35em 1.1em;border-left:3px solid var(--accent);
+  background:linear-gradient(90deg,rgba(11,107,94,.05),transparent);color:#4b5563;
+}
+#preview blockquote p:last-child{margin-bottom:0}
+#preview table{border-collapse:collapse;width:100%;margin:0 0 1.2em;font-size:14.5px}
+#preview th,#preview td{border:1px solid var(--line);padding:7px 12px;text-align:left}
+#preview th{background:var(--panel);font-weight:600}
+#preview tr:nth-child(even) td{background:rgba(245,243,238,.5)}
+#preview img{max-width:100%;border-radius:8px}
+#preview hr{border:0;border-top:1px solid var(--line);margin:2em 0}
+#preview ul,#preview ol{padding-left:1.4em;margin:0 0 1em}
+#preview li{margin:.25em 0}
+#preview li.task-list-item{list-style:none;margin-left:-1.2em}
+#preview li.task-list-item input{margin-right:.5em;accent-color:var(--accent)}
+#preview del{color:#9aa1ab}
+
+/* ---------- 视图模式 ---------- */
+#wrap[data-view="write"]{grid-template-columns:1fr}
+#wrap[data-view="write"] .pane.right{display:none}
+#wrap[data-view="read"]{grid-template-columns:1fr}
+#wrap[data-view="read"] .pane.left{display:none}
+#wrap[data-view="read"] #preview{max-width:820px;margin:0 auto;width:100%;padding-top:44px}
+#wrap[data-view="write"] #editor{max-width:820px;margin:0 auto;font-size:16px;line-height:1.9;padding-top:44px}
+
+/* ---------- 状态栏 ---------- */
+footer{
+  display:flex;align-items:center;gap:18px;padding:6px 16px;flex:0 0 auto;
+  border-top:1px solid var(--line);font-size:12px;color:var(--muted);
+  font-family:var(--mono);background:var(--paper);
+}
+footer b{color:var(--ink);font-weight:600}
+footer .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px}
+
+@media (max-width:820px){
+  #wrap{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+  .pane + .pane{border-left:0;border-top:1px solid var(--line)}
+  body.show-outline #wrap{grid-template-columns:1fr 1fr}
+  body.show-outline #outline{display:none}
+  #toolbar .hint{display:none}
+  header .brand small{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="seal">墨</span><span>墨池</span><small>Markdown 实时编辑器</small></div>
+  <div class="seg">
+    <button id="view-write" title="只写">写作</button>
+    <button id="view-split" class="active" title="左右分栏">分栏</button>
+    <button id="view-read" title="只读预览">阅读</button>
+  </div>
+  <div class="spacer"></div>
+  <span id="saved">已保存</span>
+  <button class="btn" id="btn-copy" title="复制 Markdown 源码">复制</button>
+  <button class="btn" id="btn-html" title="导出可独立打开的 HTML">导出 HTML</button>
+  <button class="btn primary" id="btn-download" title="Ctrl/⌘ + S">导出 .md</button>
+</header>
+
+<div id="toolbar">
+  <button id="tb-bold" title="加粗 Ctrl+B"><b>B</b></button>
+  <button id="tb-italic" title="斜体 Ctrl+I"><i>I</i></button>
+  <button id="tb-h" title="二级标题">H2</button>
+  <button id="tb-quote" title="引用 Ctrl+Enter">❝ 引用</button>
+  <button id="tb-code" title="代码块">&lt;/&gt;</button>
+  <button id="tb-link" title="链接 Ctrl+K">🔗 链接</button>
+  <button id="tb-task" title="任务列表">☑ 任务</button>
+  <button id="tb-table" title="插入表格">▦ 表格</button>
+  <span class="sep"></span>
+  <button id="btn-import" title="导入 .md（也可直接拖文件进来）">导入 md</button>
+  <button id="btn-clear" title="清空">清空</button>
+  <span class="hint">拖入 .md 文件即可打开</span>
+</div>
+
+<div id="wrap" data-view="split">
+  <aside id="outline">
+    <div class="outline-head">大纲</div>
+    <div id="outline-body"><div class="outline-empty">还没有标题</div></div>
+  </aside>
+  <section class="pane left">
+    <textarea id="editor" spellcheck="false" placeholder="# 在这里开始写作…"></textarea>
+  </section>
+  <section class="pane right">
+    <div id="preview"></div>
+  </section>
+</div>
+
+<footer>
+  <span><span class="dot"></span>字数 <b id="st-words">0</b></span>
+  <span>行数 <b id="st-lines">0</b></span>
+  <span>阅读约 <b id="st-mins">0</b> 分钟</span>
+  <span class="spacer" style="flex:1"></span>
+  <span id="toggle-outline" style="cursor:pointer;user-select:none" title="显示/隐藏大纲">☰ 大纲</span>
+</footer>
+
+<input type="file" id="file-input" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
+<script src="marked.min.js"></script>
+<script src="app.js"></script>
+<script>
+// 大纲面板开关（脚本加载完后挂事件）
+document.getElementById('toggle-outline').addEventListener('click', function () {
+  document.body.classList.toggle('show-outline');
+});
+</script>
+</body>
+</html>
