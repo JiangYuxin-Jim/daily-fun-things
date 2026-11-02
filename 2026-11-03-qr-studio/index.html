@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二维码工坊 · QR Studio</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --line:#2a3140;
+    --text:#e6edf3; --muted:#8b949e; --accent:#4f9cf9; --accent2:#7ee787;
+    --danger:#f85149; --radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#1a2233 0%,var(--bg) 55%);
+    color:var(--text);min-height:100vh;padding:28px 20px 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  header{text-align:center;margin-bottom:26px}
+  h1{font-size:26px;font-weight:700;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:8px;line-height:1.6}
+  .grid{display:grid;grid-template-columns:1fr 400px;gap:20px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .field{margin-bottom:16px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px;letter-spacing:.3px}
+  textarea,input[type=text]{
+    width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+    color:var(--text);padding:11px 12px;font-size:14px;font-family:inherit;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  textarea:focus,input[type=text]:focus{
+    outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,156,249,.15)
+  }
+  textarea{min-height:84px;line-height:1.55}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:120px}
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{
+    background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    padding:7px 13px;border-radius:20px;font-size:12.5px;cursor:pointer;user-select:none;
+    transition:all .15s;
+  }
+  .chip:hover{border-color:#3d4757;color:var(--text)}
+  .chip.on{background:rgba(79,156,249,.16);border-color:var(--accent);color:#a9d3ff}
+  input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums;font-size:12px}
+  .btn{
+    background:linear-gradient(180deg,#4f9cf9,#3b82e0);color:#fff;border:none;
+    padding:12px 18px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;
+    transition:transform .1s,filter .15s;width:100%;
+  }
+  .btn:hover{filter:brightness(1.08)}
+  .btn:active{transform:scale(.985)}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:500}
+  .btn.ghost:hover{color:var(--text);border-color:#3d4757;filter:none}
+  .preview{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;position:sticky;top:20px;
+  }
+  #canvasBox{
+    background:#fff;border-radius:10px;padding:14px;display:flex;
+    align-items:center;justify-content:center;min-height:300px;
+  }
+  #qr{max-width:100%;height:auto;display:block;image-rendering:pixelated}
+  .meta{
+    display:flex;justify-content:space-between;margin-top:13px;font-size:12px;
+    color:var(--muted);font-variant-numeric:tabular-nums;
+  }
+  .meta b{color:var(--accent2);font-weight:600}
+  .err{
+    background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.4);color:#ffb3af;
+    padding:10px 12px;border-radius:8px;font-size:12.5px;margin-top:12px;line-height:1.5;
+    display:none;
+  }
+  .err.show{display:block}
+  .actions{display:flex;gap:9px;margin-top:14px}
+  .foot{text-align:center;color:#4d5866;font-size:11.5px;margin-top:34px;line-height:1.7}
+  .hint{font-size:11.5px;color:#5d6878;margin-top:6px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>二维码<span>工坊</span></h1>
+    <p class="sub">纯本地生成，不上传任何数据 · 支持中文 · 可下载 PNG / SVG</p>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <div class="field">
+        <label>内容（网址 / 文本 / 中文都行）</label>
+        <textarea id="text" placeholder="https://jiangyuxin.top">https://jiangyuxin.top</textarea>
+        <p class="hint">换行会被保留，适合放 vCard 名片或地址信息</p>
+      </div>
+
+      <div class="field">
+        <label>纠错等级 <span class="val" id="eccVal"></span></label>
+        <div class="chips" id="eccChips">
+          <div class="chip" data-ecc="L">L · 7%</div>
+          <div class="chip" data-ecc="M">M · 15%</div>
+          <div class="chip" data-ecc="Q">Q · 25%</div>
+          <div class="chip" data-ecc="H">H · 30%</div>
+        </div>
+        <p class="hint">等级越高越抗污损，但码更密。要打印或贴外面选 Q / H</p>
+      </div>
+
+      <div class="field">
+        <label>前景色 / 背景色</label>
+        <div class="row">
+          <input type="color" id="fg" value="#0e1116" style="height:40px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;padding:3px">
+          <input type="color" id="bg" value="#ffffff" style="height:40px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;padding:3px">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>留白边距 <span class="val" id="quietVal">4</span> 模块</label>
+        <input type="range" id="quiet" min="1" max="10" value="4" step="1">
+        <p class="hint">标准要求 4 模块；实测低于 4 扫码率会下降，取 1 以下基本扫不出，所以下限锁在 1</p>
+      </div>
+
+      <div class="field">
+        <label>导出尺寸 <span class="val" id="sizeVal">512</span> px</label>
+        <input type="range" id="size" min="128" max="2048" value="512" step="64">
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="dlPng">下载 PNG</button>
+        <button class="btn ghost" id="dlSvg">下载 SVG</button>
+      </div>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div class="preview">
+      <div id="canvasBox"><canvas id="qr"></canvas></div>
+      <div class="meta">
+        <span>模块 <b id="modCount">–</b></span>
+        <span>版本 <b id="verNum">–</b></span>
+        <span>字节 <b id="byteLen">–</b></span>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    基于 Kazuhiko Arase 的 qrcode-generator（MIT）本地内置，完全离线可用<br>
+    所有运算都在你的浏览器里完成，内容不会发往任何服务器
+  </p>
+</div>
+
+<script src="./qrcode-lib.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  // ★ 关键：库的默认 stringToBytes 会把每字符 & 0xff，中文必然乱码。
+  // 必须显式切到 UTF-8 编码，才能生成可被扫码器正确识别的中文二维码。
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var textEl=$('text'), fgEl=$('fg'), bgEl=$('bg'), quietEl=$('quiet'),
+      sizeEl=$('size'), canvas=$('qr'), errEl=$('err');
+  var ecc = 'M';
+
+  function byteLen(s){
+    // UTF-8 真实字节数
+    var n=0;
+    for (var i=0;i<s.length;i++){
+      var c=s.charCodeAt(i);
+      if (c<0x80) n+=1;
+      else if (c<0x800) n+=2;
+      else if (c>=0xD800 && c<=0xDBFF){ n+=4; i++; }
+      else n+=3;
+    }
+    return n;
+  }
+
+  function showErr(msg){
+    errEl.textContent = msg;
+    errEl.classList.add('show');
+  }
+  function clearErr(){
+    errEl.classList.remove('show');
+    errEl.textContent='';
+  }
+
+  function makeQR(){
+    var text = textEl.value;
+    if (!text){
+      clearErr();
+      var ctx = canvas.getContext('2d');
+      canvas.width = canvas.height = 260;
+      ctx.fillStyle='#fff'; ctx.fillRect(0,0,260,260);
+      $('modCount').textContent='–'; $('verNum').textContent='–'; $('byteLen').textContent='0';
+      return null;
+    }
+    try{
+      var q = qrcode(0, ecc);       // 0 = 自动选最小可用版本
+      q.addData(text);
+      q.make();
+      clearErr();
+      return q;
+    }catch(e){
+      showErr('内容太长，当前纠错等级装不下。可以调低纠错等级，或缩短内容。');
+      return null;
+    }
+  }
+
+  function draw(){
+    var q = makeQR();
+    var quiet = parseInt(quietEl.value,10);
+    var outSize = parseInt(sizeEl.value,10);
+    var fg = fgEl.value, bg = bgEl.value;
+
+    if (!q){
+      if (textEl.value){ return; }
+      return;
+    }
+
+    var n = q.getModuleCount();
+    var total = n + quiet*2;                 // 含静区的总模块数
+    var scale = Math.max(1, Math.floor(outSize / total));
+    var px = total * scale;
+
+    canvas.width = px; canvas.height = px;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0,0,px,px);
+
+    ctx.fillStyle = fg;
+    for (var y=0;y<n;y++){
+      for (var x=0;x<n;x++){
+        if (q.isDark(y,x)){
+          ctx.fillRect((x+quiet)*scale, (y+quiet)*scale, scale, scale);
+        }
+      }
+    }
+
+    $('modCount').textContent = n + '×' + n;
+    // QR 版本号定义：模块数 = 21 + 4×(版本-1)  =>  版本 = (模块数-17)/4
+    $('verNum').textContent = (n-17)/4;
+    $('byteLen').textContent = byteLen(textEl.value);
+  }
+
+  function setEcc(v){
+    ecc = v;
+    Array.prototype.forEach.call(document.querySelectorAll('.chip'), function(c){
+      c.classList.toggle('on', c.dataset.ecc === v);
+    });
+    $('eccVal').textContent = v;
+    draw();
+  }
+
+  textEl.addEventListener('input', draw);
+  fgEl.addEventListener('input', draw);
+  bgEl.addEventListener('input', draw);
+  quietEl.addEventListener('input', function(){
+    $('quietVal').textContent = quietEl.value; draw();
+  });
+  sizeEl.addEventListener('input', function(){
+    $('sizeVal').textContent = sizeEl.value; draw();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function(c){
+    c.addEventListener('click', function(){ setEcc(c.dataset.ecc); });
+  });
+
+  $('dlPng').addEventListener('click', function(){
+    var a=document.createElement('a');
+    a.download='qrcode-'+Date.now()+'.png';
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+  });
+
+  $('dlSvg').addEventListener('click', function(){
+    var q = makeQR();
+    if(!q){ return; }
+    var n=q.getModuleCount(), quiet=parseInt(quietEl.value,10);
+    var total=n+quiet*2;
+    var fg=fgEl.value, bg=bgEl.value;
+    var rects='';
+    for (var y=0;y<n;y++){
+      for (var x=0;x<n;x++){
+        if (q.isDark(y,x)) rects+='<rect x="'+(x+quiet)+'" y="'+(y+quiet)+'" width="1" height="1"/>';
+      }
+    }
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+total+' '+total+'" shape-rendering="crispEdges">'+
+            '<rect width="'+total+'" height="'+total+'" fill="'+bg+'"/>'+
+            '<g fill="'+fg+'">'+rects+'</g></svg>';
+    var blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'});
+    var a=document.createElement('a');
+    a.download='qrcode-'+Date.now()+'.svg';
+    a.href=URL.createObjectURL(blob);
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+  });
+
+  setEcc('M');
+})();
+</script>
+</body>
+</html>
