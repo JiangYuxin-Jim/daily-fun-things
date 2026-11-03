@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-04",
+  "day": 6,
+  "name": "声景",
+  "slug": "soundscape",
+  "desc": "纯 Web Audio 实时合成的白噪音混音器：雨/海浪/风/篝火/咖啡店/琴音六轨自由叠加，预设场景 + 频谱可视化 + 睡眠定时渐弱",
+  "type": "工具",
+  "stack": "HTML + CSS + 原生 JS（Web Audio API，零依赖零素材）"
+}
