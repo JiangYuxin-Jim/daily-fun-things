@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-03",
+  "day": 5,
+  "name": "密码铸造厂",
+  "slug": "password-gen",
+  "desc": "本地 CSPRNG 安全密码生成器，拒绝采样消除取模偏差，实时计算熵与离线爆破时间",
+  "type": "工具",
+  "stack": "HTML + CSS + 原生 JS（零依赖）"
+}

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>密码铸造厂 · Password Forge</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#151a23; --panel-2:#1c2330;
+    --line:#2a3444; --txt:#e6edf3; --dim:#8b98a9;
+    --accent:#4ade80; --warn:#fbbf24; --bad:#f87171; --info:#60a5fa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 20% 0%,#16202e 0%,var(--bg) 55%);
+    color:var(--txt); min-height:100vh; padding:32px 16px;
+    display:flex; justify-content:center;
+  }
+  .wrap{width:100%;max-width:720px}
+  header{text-align:center;margin-bottom:26px}
+  h1{font-size:26px;font-weight:650;letter-spacing:.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--dim);font-size:13px;margin-top:7px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+
+  .out-row{display:flex;gap:10px;align-items:stretch}
+  #output{
+    flex:1; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    font-size:20px; letter-spacing:.6px; word-break:break-all; line-height:1.5;
+    min-height:60px; display:flex; align-items:center; color:var(--accent);
+    transition:color .2s;
+  }
+  #output.weak{color:var(--warn)}
+  #output.bad{color:var(--bad)}
+  .out-btns{display:flex;flex-direction:column;gap:8px}
+
+  button{
+    font-family:inherit;font-size:13px;cursor:pointer;border-radius:9px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--txt);
+    padding:11px 16px; transition:.15s; white-space:nowrap;
+  }
+  button:hover{background:#232c3c;border-color:#3b4a60}
+  button:active{transform:scale(.97)}
+  button.primary{background:var(--accent);color:#06240f;border-color:var(--accent);font-weight:650}
+  button.primary:hover{background:#5ee88e}
+  button.ghost{font-size:12px;padding:9px 12px}
+
+  .strength{margin-top:14px}
+  .bar{height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;display:flex}
+  .bar i{height:100%;transition:width .3s,background .3s}
+  .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:8px}
+
+  .ctrl{margin-bottom:16px}
+  .ctrl:last-child{margin-bottom:0}
+  .ctrl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .ctrl-head label{font-size:13px;color:var(--dim)}
+  .len-val{font-family:ui-monospace,monospace;font-size:15px;color:var(--accent);font-weight:600}
+
+  input[type=range]{width:100%;-webkit-appearance:none;height:5px;border-radius:3px;background:var(--panel-2);outline:none}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+    background:var(--accent);cursor:pointer;border:2px solid var(--panel);
+    box-shadow:0 0 0 1px var(--accent);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:15px;height:15px;border-radius:50%;background:var(--accent);
+    cursor:pointer;border:2px solid var(--panel);
+  }
+
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .opt{
+    display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px;
+    background:var(--panel-2);border:1px solid transparent;cursor:pointer;font-size:13px;
+    transition:.15s;
+  }
+  .opt:hover{border-color:#3b4a60}
+  .opt.on{border-color:var(--accent);background:#132a1c}
+  .opt input{accent-color:var(--accent);cursor:pointer;width:15px;height:15px}
+  .opt .tag{margin-left:auto;font-size:11px;color:var(--dim);font-family:ui-monospace,monospace}
+
+  .toggles{display:flex;gap:9px;flex-wrap:wrap;margin-top:4px}
+  .tg{font-size:12px;padding:8px 13px;border-radius:20px;background:var(--panel-2);border:1px solid var(--line);cursor:pointer;color:var(--dim);transition:.15s}
+  .tg:hover{border-color:#3b4a60;color:var(--txt)}
+  .tg.on{background:#132a1c;border-color:var(--accent);color:var(--accent)}
+
+  .history{margin-top:6px}
+  .hist-item{
+    display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;
+    background:var(--panel-2);margin-bottom:7px;font-family:ui-monospace,monospace;font-size:13px;
+  }
+  .hist-item span{flex:1;word-break:break-all}
+  .hist-item .copy{background:none;border:none;color:var(--dim);cursor:pointer;padding:4px 8px;font-size:12px}
+  .hist-item .copy:hover{color:var(--accent)}
+  .empty{color:var(--dim);font-size:13px;text-align:center;padding:14px}
+
+  .toast{
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--accent);color:#06240f;padding:10px 22px;border-radius:22px;
+    font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}
+  .stat div{background:var(--panel-2);border-radius:9px;padding:11px;text-align:center}
+  .stat b{display:block;font-size:17px;color:var(--accent);font-family:ui-monospace,monospace}
+  .stat small{font-size:11px;color:var(--dim)}
+
+  h2{font-size:13px;color:var(--dim);font-weight:600;margin-bottom:11px;letter-spacing:.4px}
+  @media(max-width:520px){
+    .opts{grid-template-columns:1fr}
+    .out-row{flex-direction:column}
+    .out-btns{flex-direction:row}
+    .out-btns button{flex:1}
+    #output{font-size:17px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>密码铸造<span>厂</span></h1>
+    <div class="sub">本地生成 · 不联网 · 基于 crypto.getRandomValues</div>
+  </header>
+
+  <div class="card">
+    <div class="out-row">
+      <div id="output">—</div>
+      <div class="out-btns">
+        <button class="primary" id="btnGen">重新生成</button>
+        <button class="ghost" id="btnCopy">复制</button>
+      </div>
+    </div>
+
+    <div class="strength">
+      <div class="bar"><i id="barFill" style="width:0%"></i></div>
+      <div class="meta">
+        <span id="entropy">–</span>
+        <span id="crack">–</span>
+      </div>
+    </div>
+
+    <div class="stat">
+      <div><b id="stLen">0</b><small>长度</small></div>
+      <div><b id="stEntropy">0</b><small>熵 (bit)</small></div>
+      <div><b id="stTime">–</b><small>离线爆破估算</small></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctrl">
+      <div class="ctrl-head">
+        <label>密码长度</label>
+        <span class="len-val" id="lenVal">20</span>
+      </div>
+      <input type="range" id="len" min="6" max="64" value="20">
+    </div>
+
+    <div class="ctrl">
+      <div class="ctrl-head"><label>字符集</label></div>
+      <div class="opts">
+        <label class="opt on"><input type="checkbox" id="lower" checked><span>小写 a-z</span><span class="tag">26</span></label>
+        <label class="opt on"><input type="checkbox" id="upper" checked><span>大写 A-Z</span><span class="tag">26</span></label>
+        <label class="opt on"><input type="checkbox" id="digit" checked><span>数字 0-9</span><span class="tag">10</span></label>
+        <label class="opt on"><input type="checkbox" id="symbol" checked><span>符号 !@#$</span><span class="tag">29</span></label>
+      </div>
+    </div>
+
+    <div class="ctrl">
+      <div class="ctrl-head"><label>增强选项</label></div>
+      <div class="toggles">
+        <div class="tg on" id="tgNoAmb">排除易混字符 0O1lI|</div>
+        <div class="tg" id="tgMust">每类至少一个</div>
+        <div class="tg" id="tgPronounce">可读音节模式</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card history">
+    <h2>本次生成记录（仅存在本页内存，刷新即清）</h2>
+    <div id="hist"><div class="empty">还没有生成记录</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">已复制</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var SETS = {
+    lower: 'abcdefghijklmnopqrstuvwxyz',
+    upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    digit: '0123456789',
+    symbol: '!@#$%^&*()-_=+[]{};:,.<>?/~'
+  };
+  var AMBIGUOUS = '0O1lI|`\'"';
+
+  var els = {
+    output: document.getElementById('output'),
+    len: document.getElementById('len'),
+    lenVal: document.getElementById('lenVal'),
+    lower: document.getElementById('lower'),
+    upper: document.getElementById('upper'),
+    digit: document.getElementById('digit'),
+    symbol: document.getElementById('symbol'),
+    tgNoAmb: document.getElementById('tgNoAmb'),
+    tgMust: document.getElementById('tgMust'),
+    tgPronounce: document.getElementById('tgPronounce'),
+    barFill: document.getElementById('barFill'),
+    entropy: document.getElementById('entropy'),
+    crack: document.getElementById('crack'),
+    stLen: document.getElementById('stLen'),
+    stEntropy: document.getElementById('stEntropy'),
+    stTime: document.getElementById('stTime'),
+    hist: document.getElementById('hist'),
+    toast: document.getElementById('toast')
+  };
+
+  var state = { noAmb: true, must: false, pronounce: false };
+  var history = [];
+  var current = '';
+
+  // 安全随机整数 [0, max) ，使用拒绝采样避免取模偏差
+  function randInt(max){
+    if (max <= 0) return 0;
+    var c = (typeof crypto !== 'undefined' && crypto.getRandomValues) ? crypto : null;
+    if (!c) return Math.floor(Math.random() * max);
+    var limit = Math.floor(0xFFFFFFFF / max) * max;
+    var arr = new Uint32Array(1);
+    for (;;) {
+      c.getRandomValues(arr);
+      if (arr[0] < limit) return arr[0] % max;
+    }
+  }
+
+  function activeSets(){
+    var out = [];
+    ['lower','upper','digit','symbol'].forEach(function(k){
+      if (els[k].checked) {
+        var pool = SETS[k];
+        if (state.noAmb) {
+          pool = pool.split('').filter(function(ch){ return AMBIGUOUS.indexOf(ch) === -1; }).join('');
+        }
+        if (pool.length) out.push({ key: k, pool: pool });
+      }
+    });
+    return out;
+  }
+
+  // 可读音节模式：辅音+元音交替，再夹数字符号
+  var CONS = 'bcdfghjkmnpqrstvwxz';
+  var VOWEL = 'aeiou';
+  function pronounceable(len, pool){
+    var s = '';
+    var i = 0;
+    while (s.length < len) {
+      if (i % 2 === 0) s += CONS.charAt(randInt(CONS.length));
+      else s += VOWEL.charAt(randInt(VOWEL.length));
+      if (i % 6 === 5) s += String(randInt(10));
+      if (i % 8 === 7) s += SETS.symbol.charAt(randInt(SETS.symbol.length));
+      i++;
+    }
+    return s.slice(0, len);
+  }
+
+  function generate(){
+    var len = parseInt(els.len.value, 10);
+    var sets = activeSets();
+    if (!sets.length) {
+      els.output.textContent = '请至少勾选一种字符集';
+      els.output.className = 'bad';
+      current = '';
+      updateMeter();
+      return '';
+    }
+
+    var full = sets.map(function(s){ return s.pool; }).join('');
+    var chars = [];
+
+    if (state.pronounce && !state.must) {
+      chars = pronounceable(len, full).split('');
+    } else {
+      if (state.must) {
+        // 每类至少一个
+        sets.forEach(function(s){
+          if (chars.length < len) chars.push(s.pool.charAt(randInt(s.pool.length)));
+        });
+      }
+      while (chars.length < len) {
+        chars.push(full.charAt(randInt(full.length)));
+      }
+      // Fisher-Yates 洗牌，保证必填字符位置随机
+      for (var i = chars.length - 1; i > 0; i--) {
+        var j = randInt(i + 1);
+        var t = chars[i]; chars[i] = chars[j]; chars[j] = t;
+      }
+    }
+
+    current = chars.join('');
+    els.output.textContent = current;
+    return current;
+  }
+
+  function poolSize(){
+    var sets = activeSets();
+    return sets.reduce(function(acc, s){ return acc + s.pool.length; }, 0);
+  }
+
+  function entropyBits(len, pool){
+    if (pool <= 1) return 0;
+    return len * (Math.log(pool) / Math.log(2));
+  }
+
+  function humanTime(seconds){
+    if (seconds < 1) return '瞬间';
+    var units = [
+      ['年', 31536000], ['天', 86400], ['小时', 3600], ['分钟', 60], ['秒', 1]
+    ];
+    for (var i = 0; i < units.length; i++) {
+      if (seconds >= units[i][1]) {
+        var v = seconds / units[i][1];
+        return (v >= 1000 ? v.toExponential(1) : v.toFixed(v < 10 ? 1 : 0)) + ' ' + units[i][0];
+      }
+    }
+    return seconds.toFixed(1) + ' 秒';
+  }
+
+  function crackTime(bits){
+    // 假设离线攻击 100 亿次/秒（现代 GPU 集群量级）
+    var guesses = Math.pow(2, bits) / 2;
+    return humanTime(guesses / 1e10);
+  }
+
+  function updateMeter(){
+    var len = current.length;
+    var pool = poolSize();
+    var bits = entropyBits(len, pool);
+
+    els.stLen.textContent = len;
+    els.stEntropy.textContent = len ? bits.toFixed(1) : '0';
+    els.stTime.textContent = len ? crackTime(bits) : '–';
+
+    var pct = Math.min(100, (bits / 128) * 100);
+    var color = bits < 50 ? 'var(--bad)' : bits < 80 ? 'var(--warn)' : bits < 110 ? 'var(--info)' : 'var(--accent)';
+    els.barFill.style.width = pct + '%';
+    els.barFill.style.background = color;
+
+    els.entropy.textContent = len ? ('熵 ' + bits.toFixed(1) + ' bit · 字符池 ' + pool) : '–';
+    els.crack.textContent = len ? ('离线爆破 ≈ ' + crackTime(bits)) : '–';
+
+    els.output.className = '';
+    if (len) {
+      if (bits < 50) els.output.className = 'bad';
+      else if (bits < 80) els.output.className = 'weak';
+    }
+  }
+
+  function addHistory(pwd){
+    if (!pwd) return;
+    if (history[0] === pwd) return;
+    history.unshift(pwd);
+    if (history.length > 6) history.pop();
+    renderHistory();
+  }
+
+  function renderHistory(){
+    if (!history.length) {
+      els.hist.innerHTML = '<div class="empty">还没有生成记录</div>';
+      return;
+    }
+    els.hist.innerHTML = '';
+    history.forEach(function(p){
+      var row = document.createElement('div');
+      row.className = 'hist-item';
+      var span = document.createElement('span');
+      span.textContent = p;
+      var btn = document.createElement('button');
+      btn.className = 'copy';
+      btn.textContent = '复制';
+      btn.onclick = function(){ copyText(p); };
+      row.appendChild(span);
+      row.appendChild(btn);
+      els.hist.appendChild(row);
+    });
+  }
+
+  function copyText(text){
+    if (!text) return;
+    function done(){ toast('已复制'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch(e) { toast('复制失败'); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  var toastTimer = null;
+  function toast(msg){
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ els.toast.classList.remove('show'); }, 1600);
+  }
+
+  function refresh(record){
+    generate();
+    updateMeter();
+    if (record) addHistory(current);
+  }
+
+  // 事件绑定
+  document.getElementById('btnGen').onclick = function(){ refresh(true); };
+  document.getElementById('btnCopy').onclick = function(){ copyText(current); };
+  els.len.addEventListener('input', function(){
+    els.lenVal.textContent = els.len.value;
+    refresh(false);
+  });
+
+  ['lower','upper','digit','symbol'].forEach(function(k){
+    els[k].addEventListener('change', function(){
+      this.closest('.opt').classList.toggle('on', this.checked);
+      refresh(false);
+    });
+  });
+
+  function bindToggle(el, key){
+    el.onclick = function(){
+      state[key] = !state[key];
+      el.classList.toggle('on', state[key]);
+      refresh(false);
+    };
+  }
+  bindToggle(els.tgNoAmb, 'noAmb');
+  bindToggle(els.tgMust, 'must');
+  bindToggle(els.tgPronounce, 'pronounce');
+
+  // 首次生成
+  els.lenVal.textContent = els.len.value;
+  refresh(true);
+
+  // 暴露给自动化测试
+  window.__pwd = {
+    generate: function(cfg){
+      if (cfg) {
+        if (cfg.len) { els.len.value = cfg.len; els.lenVal.textContent = cfg.len; }
+        ['lower','upper','digit','symbol'].forEach(function(k){
+          if (typeof cfg[k] === 'boolean') {
+            els[k].checked = cfg[k];
+            els[k].closest('.opt').classList.toggle('on', cfg[k]);
+          }
+        });
+        ['noAmb','must','pronounce'].forEach(function(k){
+          if (typeof cfg[k] === 'boolean') {
+            state[k] = cfg[k];
+            var map = { noAmb: els.tgNoAmb, must: els.tgMust, pronounce: els.tgPronounce };
+            map[k].classList.toggle('on', cfg[k]);
+          }
+        });
+      }
+      refresh(false);
+      return current;
+    },
+    poolSize: poolSize,
+    entropy: function(){ return entropyBits(current.length, poolSize()); }
+  };
+})();
+</script>
+</body>
+</html>
