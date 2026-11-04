@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-05",
+  "day": 7,
+  "name": "JSON 工坊",
+  "slug": "json-studio",
+  "desc": "本地 JSON 格式化与校验：自动修复注释/单引号/尾逗号的脏 JSON、精确定位错行、树形/路径表浏览、一键转 JS 对象字面量、扁平化导出",
+  "type": "工具",
+  "stack": "HTML + CSS + 原生 JS（零依赖，core.js 浏览器/node 通用）"
+}

@@ -16,6 +16,7 @@
 | 2026-11-03 | Day 04 | [墨池 · md-editor](./2026-11-03-md-editor) | 双击即用的 Markdown 实时编辑器：边写边排版、大纲跳转、字数统计，可导出 .md / 单文件 HTML | 工具 | HTML/JS + marked |
 | 2026-11-03 | Day 05 | [密码铸造厂 · password-gen](./2026-11-03-password-gen) | 本地 CSPRNG 安全密码生成器：拒绝采样消除取模偏差，实时算熵与离线爆破年限，支持可读音节模式 | 工具 | HTML/JS 零依赖 |
 | 2026-11-04 | Day 06 | [声景 · soundscape](./2026-11-04-soundscape) | 纯 Web Audio 实时合成的白噪音混音器：六轨环境音自由叠加、预设场景、频谱可视化、睡眠定时渐弱，零素材零网络 | 工具 | HTML/JS 零依赖 |
+| 2026-11-05 | Day 07 | [JSON 工坊 · json-studio](./2026-11-05-json-studio) | 本地 JSON 格式化：自动修复注释/单引号/尾逗号，精确指出错在哪行，还能转 JS 对象、树形浏览、拍平成路径表 | 工具 | HTML/JS 零依赖 |
 
 > 完整 30 天清单见 [ROADMAP.md](./ROADMAP.md)
 
