@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>2048 · 数字炼金术</title>
+<style>
+  :root {
+    --bg: #12100e;
+    --board: #2b2620;
+    --cell: #3a332b;
+    --text: #f5efe6;
+    --dim: #9a8f80;
+    --gold: #f5b544;
+    --green: #7bc86c;
+    --board-size: min(88vw, 460px, 58vh);
+    --gap: calc(var(--board-size) * 0.028);
+    --radius: calc(var(--board-size) * 0.022);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: radial-gradient(900px 600px at 50% -20%, #2a2118, transparent 70%), var(--bg);
+    color: var(--text); font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding: 14px; overflow: hidden; user-select: none;
+  }
+  header { width: var(--board-size); display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+  .title { font-size: clamp(22px, 6vw, 34px); font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+  .title small { display: block; font-size: 11px; font-weight: 400; color: var(--dim); letter-spacing: 2px; margin-top: 5px; }
+  .scores { display: flex; gap: 8px; }
+  .score-box {
+    background: var(--board); border-radius: 8px; padding: 6px 12px; min-width: 76px; text-align: center;
+    position: relative;
+  }
+  .score-box .label { font-size: 10px; color: var(--dim); letter-spacing: 1px; }
+  .score-box .val { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .float {
+    position: absolute; left: 0; right: 0; top: 4px; color: var(--gold); font-weight: 700; font-size: 15px;
+    animation: floatUp .7s ease-out forwards; pointer-events: none;
+  }
+  @keyframes floatUp { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-26px); } }
+
+  .board-wrap { position: relative; width: var(--board-size); height: var(--board-size); }
+  .board {
+    position: absolute; inset: 0; background: var(--board); border-radius: var(--radius);
+    display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr);
+    gap: var(--gap); padding: var(--gap);
+  }
+  .bgcell { background: var(--cell); border-radius: calc(var(--radius) * 0.6); }
+  .tiles { position: absolute; inset: 0; }
+  .tile {
+    position: absolute; display: flex; align-items: center; justify-content: center;
+    border-radius: calc(var(--radius) * 0.6); font-weight: 800; font-variant-numeric: tabular-nums;
+    transition: left .1s ease, top .1s ease, transform .1s ease;
+    will-change: left, top;
+  }
+  .tile.pop { animation: pop .16s ease; }
+  @keyframes pop { 0% { transform: scale(.55); } 70% { transform: scale(1.08); } 100% { transform: scale(1); } }
+  .tile.merge { animation: pulse .2s ease; }
+  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.16); } 100% { transform: scale(1); } }
+
+  /* 配色：2→2048 由浅到深，2048 起金色 */
+  .t2    { background: #eee4d8; color: #6b6155; }
+  .t4    { background: #eddfc8; color: #6b6155; }
+  .t8    { background: #f2b179; color: #fff8f0; }
+  .t16   { background: #f2955d; color: #fff8f0; }
+  .t32   { background: #f57c5f; color: #fff8f0; }
+  .t64   { background: #f45f3a; color: #fff8f0; }
+  .t128  { background: #edcf72; color: #fff8f0; box-shadow: 0 0 18px rgba(237,207,114,.35); }
+  .t256  { background: #edcc61; color: #fff8f0; box-shadow: 0 0 22px rgba(237,204,97,.42); }
+  .t512  { background: #edc850; color: #fff8f0; box-shadow: 0 0 26px rgba(237,200,80,.5); }
+  .t1024 { background: #edc53f; color: #fff8f0; box-shadow: 0 0 30px rgba(237,197,63,.58); }
+  .t2048 { background: linear-gradient(135deg, #ffd76e, #f5a623); color: #fff; box-shadow: 0 0 40px rgba(245,181,68,.7); }
+  .tsuper { background: linear-gradient(135deg, #3a2b1a, #1a1410); color: var(--gold); border: 1px solid rgba(245,181,68,.5); box-shadow: 0 0 40px rgba(245,181,68,.55); }
+
+  .overlay {
+    position: absolute; inset: 0; border-radius: var(--radius); background: rgba(18,16,14,.82);
+    backdrop-filter: blur(3px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; opacity: 0; pointer-events: none; transition: opacity .22s; z-index: 5; text-align: center; padding: 20px;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .overlay h2 { margin: 0; font-size: clamp(20px, 5.5vw, 28px); }
+  .overlay p { margin: 0; color: var(--dim); font-size: 13px; }
+  .overlay .big { font-size: 30px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  .controls { width: var(--board-size); display: flex; gap: 8px; align-items: center; }
+  button {
+    font: inherit; font-size: 13px; color: var(--text); background: var(--board); border: 1px solid #453b31;
+    border-radius: 8px; padding: 9px 14px; cursor: pointer; transition: background .15s, border-color .15s, transform .07s;
+  }
+  button:hover { background: #3a332b; border-color: #5a4d40; }
+  button:active { transform: translateY(1px); }
+  button.primary { background: linear-gradient(135deg, #ffd76e, #f5a623); color: #221a10; font-weight: 700; border: 0; }
+  button.on { background: rgba(245,181,68,.18); border-color: rgba(245,181,68,.6); color: var(--gold); }
+  .spacer { flex: 1; }
+  .hint { font-size: 12px; color: var(--dim); width: var(--board-size); text-align: center; min-height: 18px; }
+  .hint .arrow { color: var(--gold); font-weight: 700; }
+
+  /* AI 评分的方向条 */
+  .dirbars { position: absolute; inset: 0; pointer-events: none; }
+  .dirbar {
+    position: absolute; font-size: 11px; color: rgba(245,181,68,.9); font-weight: 700; letter-spacing: .5px;
+    background: rgba(18,16,14,.7); padding: 2px 7px; border-radius: 6px;
+    border: 1px solid rgba(245,181,68,.25); white-space: nowrap;
+  }
+
+  footer { font-size: 11px; color: #5d5448; }
+  footer a { color: #7a6e5e; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="title">2048<small>数字炼金术</small></div>
+    <div class="scores">
+      <div class="score-box"><div class="label">得分</div><div class="val" id="score">0</div></div>
+      <div class="score-box"><div class="label">最高</div><div class="val" id="best">0</div></div>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="dirbars" id="dirbars"></div>
+    <div class="overlay" id="overlay">
+      <h2 id="ov-title">准备好了？</h2>
+      <p id="ov-sub">方向键 / WASD / 滑动</p>
+      <div class="big" id="ov-score" style="display:none"></div>
+      <div style="display:flex;gap:8px">
+        <button class="primary" id="ov-btn">开始游戏</button>
+        <button id="ov-btn2" style="display:none">继续玩</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="new">新游戏</button>
+    <button id="undo">撤销</button>
+    <div class="spacer"></div>
+    <button id="ai" title="显示每步的 AI 建议">🤖 提示</button>
+  </div>
+  <div class="hint" id="hint">把相同数字撞在一起，目标是 2048</div>
+  <footer>纯本地运行 · 无网络请求 · <a href="https://github.com/JiangYuxin-Jim/daily-fun-things" target="_blank">daily-fun-things</a></footer>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
