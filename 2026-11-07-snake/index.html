@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>蛇形呼吸 · Snake</title>
+<style>
+  :root{
+    --bg:#070b14;
+    --panel:rgba(16,24,40,.72);
+    --line:rgba(120,220,200,.14);
+    --ink:#e8f4f1;
+    --dim:#7f9aa3;
+    --snake:#2fe3a8;
+    --snake2:#12b98a;
+    --food:#ff5d7a;
+    --accent:#59d8ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(900px 600px at 15% -10%, #0e2a3a 0%, transparent 60%),
+      radial-gradient(700px 500px at 90% 110%, #1a1030 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    min-height:100%;padding:18px;
+    -webkit-tap-highlight-color:transparent;
+    overflow-x:hidden;
+  }
+  .wrap{width:100%;max-width:720px}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  h1{margin:0;font-size:20px;letter-spacing:.14em;font-weight:600}
+  h1 span{color:var(--snake);text-shadow:0 0 18px rgba(47,227,168,.45)}
+  .sub{font-size:11px;color:var(--dim);letter-spacing:.22em;margin-top:4px}
+  .stats{display:flex;gap:18px;text-align:right}
+  .stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat i{font-style:normal;font-size:10px;color:var(--dim);letter-spacing:.18em}
+  .best b{color:var(--accent)}
+
+  .hud{display:flex;align-items:center;gap:10px;margin:10px 0 8px;flex-wrap:wrap}
+  .chip{
+    font-size:11px;letter-spacing:.1em;color:var(--dim);
+    border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:var(--panel)
+  }
+  .chip b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .btn{
+    cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    font:inherit;font-size:12px;padding:7px 14px;border-radius:10px;
+    transition:transform .12s ease, border-color .2s, background .2s, color .2s;
+    letter-spacing:.06em;
+  }
+  .btn:hover{border-color:rgba(47,227,168,.5);color:#fff}
+  .btn:active{transform:scale(.96)}
+  .btn.on{background:rgba(47,227,168,.15);border-color:rgba(47,227,168,.55);color:var(--snake)}
+  .btn.ghost{background:transparent}
+  .spacer{flex:1}
+
+  .stage{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);
+    box-shadow:0 24px 70px -30px rgba(0,0,0,.9), inset 0 0 0 1px rgba(255,255,255,.02)}
+  canvas{display:block;width:100%;height:auto;touch-action:none}
+
+  .overlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;text-align:center;padding:24px;
+    background:radial-gradient(circle at 50% 45%, rgba(8,16,24,.82), rgba(5,8,14,.94));
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    transition:opacity .28s ease, visibility .28s;
+  }
+  .overlay.hide{opacity:0;visibility:hidden;pointer-events:none}
+  .overlay h2{margin:0;font-size:26px;letter-spacing:.08em}
+  .overlay p{margin:0;color:var(--dim);font-size:13px;line-height:1.7;max-width:420px}
+  .overlay .big{font-size:34px;color:var(--snake);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+  .overlay .newbest{font-size:11px;letter-spacing:.28em;color:var(--food);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+  .btn.primary{background:rgba(47,227,168,.16);border-color:rgba(47,227,168,.6);color:var(--snake);font-size:14px;padding:10px 26px}
+  kbd{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:rgba(255,255,255,.07);border:1px solid var(--line);
+      border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--ink)}
+
+  footer{margin-top:12px;display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--dim);flex-wrap:wrap}
+  footer a{color:var(--dim)}
+  .hint{color:rgba(127,154,163,.75)}
+
+  /* 手机方向键 */
+  .dpad{display:none;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,58px);gap:8px;justify-content:center;margin-top:14px}
+  .dpad button{
+    border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    font-size:20px;display:flex;align-items:center;justify-content:center;user-select:none;
+  }
+  .dpad button:active{background:rgba(47,227,168,.18);border-color:rgba(47,227,168,.5)}
+  .dpad .u{grid-area:1/2}.dpad .l{grid-area:2/1}.dpad .r{grid-area:2/3}.dpad .d{grid-area:3/2}
+  @media (pointer:coarse){ .dpad{display:grid} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>蛇<span>形</span>呼吸</h1>
+      <div class="sub">SNAKE · 每一步都值得屏息</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="score">0</b><i>SCORE</i></div>
+      <div class="stat best"><b id="best">0</b><i>BEST</i></div>
+    </div>
+  </header>
+
+  <div class="hud">
+    <div class="chip">长度 <b id="len">3</b></div>
+    <div class="chip">速度 <b id="spd">1.0×</b></div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="btnAi" title="开启后会给出最优方向提示">🤖 教练</button>
+    <button class="btn ghost" id="btnWrap" title="穿墙模式：从一边出去从另一边进来">🌀 穿墙</button>
+    <button class="btn ghost" id="btnPause">⏸ 暂停</button>
+    <button class="btn ghost" id="btnSound">🔊</button>
+  </div>
+
+  <div class="stage">
+    <canvas id="cv" width="720" height="720"></canvas>
+    <div class="overlay" id="ov">
+      <h2 id="ovTitle">准备出发</h2>
+      <div class="big" id="ovScore" style="display:none">0</div>
+      <div class="newbest" id="ovNew" style="display:none">NEW RECORD</div>
+      <p id="ovText">方向键 / WASD 操控，吃到红点变长。<br>吃得越多越快 —— 别咬到自己。</p>
+      <button class="btn primary" id="btnStart">开始游戏</button>
+    </div>
+  </div>
+
+  <div class="dpad">
+    <button class="u" data-dir="up">▲</button>
+    <button class="l" data-dir="left">◀</button>
+    <button class="r" data-dir="right">▶</button>
+    <button class="d" data-dir="down">▼</button>
+  </div>
+
+  <footer>
+    <span>方向键 / <kbd>WASD</kbd> 移动 · <kbd>空格</kbd> 暂停 · <kbd>R</kbd> 重开</span>
+    <span class="hint" id="tip">纯前端 · 零依赖 · 不上传任何数据</span>
+  </footer>
+</div>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
