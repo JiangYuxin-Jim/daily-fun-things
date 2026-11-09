@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>雷区 · 扫雷</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --txt:#c9d1d9;
+    --hidden:#2d333b; --hidden-hi:#3d444d; --open:#0d1117;
+    --n1:#58a6ff; --n2:#3fb950; --n3:#f85149; --n4:#a371f7;
+    --n5:#db6d28; --n6:#39c5cf; --n7:#e3b341; --n8:#8b949e;
+    --accent:#f0883e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#1a2331,#0d1117 60%);
+    color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px 40px;user-select:none;
+  }
+  h1{margin:0 0 2px;font-size:22px;letter-spacing:.18em;font-weight:600}
+  h1 span{color:var(--accent)}
+  .sub{font-size:12px;color:#6e7681;margin-bottom:14px;letter-spacing:.08em}
+
+  .bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+  .diff{padding:6px 12px;border:1px solid var(--line);background:var(--panel);color:var(--txt);
+    border-radius:999px;font-size:13px;cursor:pointer;transition:.15s}
+  .diff:hover{border-color:#58a6ff;color:#fff}
+  .diff.on{background:#1f6feb;border-color:#1f6feb;color:#fff}
+
+  .hud{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-variant-numeric:tabular-nums}
+  .hud .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:7px 12px;font-size:17px;min-width:86px;text-align:center;font-weight:600}
+  .hud .face{width:46px;height:46px;font-size:24px;line-height:1;display:grid;place-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;cursor:pointer;padding:0}
+  .hud .face:active{transform:scale(.94)}
+
+  .board-wrap{position:relative;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:6px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+  #board{display:grid;gap:2px;touch-action:manipulation}
+  .cell{width:30px;height:30px;border-radius:5px;display:grid;place-items:center;
+    font-size:15px;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace;
+    background:var(--hidden);border-top:1px solid var(--hidden-hi);
+    transition:background .1s,transform .06s;cursor:pointer}
+  .cell:hover{background:var(--hidden-hi)}
+  .cell.open{background:var(--open);border-top-color:transparent;cursor:default}
+  .cell.open:hover{background:var(--open)}
+  .cell.boom{background:#5a1d1d!important;animation:boom .45s ease-out}
+  .cell.wrong{background:#4d1f1f!important;color:#f85149}
+  .cell.flag{color:#f85149}
+  .cell.hint{box-shadow:0 0 0 2px var(--accent) inset;animation:pulse 1s infinite}
+  .cell.pop{animation:pop .18s ease-out}
+  @keyframes pop{from{transform:scale(.82);opacity:.5}to{transform:scale(1);opacity:1}}
+  @keyframes pulse{50%{box-shadow:0 0 0 2px rgba(240,136,62,.25) inset}}
+  @keyframes boom{0%{transform:scale(1.25);background:#f85149}100%{transform:scale(1)}}
+  .n1{color:var(--n1)}.n2{color:var(--n2)}.n3{color:var(--n3)}.n4{color:var(--n4)}
+  .n5{color:var(--n5)}.n6{color:var(--n6)}.n7{color:var(--n7)}.n8{color:var(--n8)}
+
+  .tools{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center}
+  .tools button{padding:7px 14px;border-radius:9px;border:1px solid var(--line);
+    background:var(--panel);color:var(--txt);font-size:13px;cursor:pointer}
+  .tools button:hover{border-color:var(--accent);color:#fff}
+  .tools button:disabled{opacity:.4;cursor:not-allowed}
+
+  .modal{position:fixed;inset:0;background:rgba(1,4,9,.78);display:none;place-items:center;z-index:50;padding:16px}
+  .modal.show{display:grid}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:24px 28px;text-align:center;max-width:340px;width:100%;animation:pop .2s ease-out}
+  .card h2{margin:0 0 6px;font-size:20px}
+  .card p{margin:4px 0;font-size:14px;color:#8b949e;line-height:1.7}
+  .card .big{font-size:30px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
+  .card button{margin-top:16px;padding:9px 22px;border-radius:10px;border:none;
+    background:#1f6feb;color:#fff;font-size:14px;cursor:pointer}
+  .card button:hover{background:#388bfd}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:#1f6feb;color:#fff;padding:8px 16px;border-radius:999px;font-size:13px;
+    opacity:0;transition:.25s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .tip{margin-top:16px;font-size:11px;color:#484f58;text-align:center;line-height:1.9;max-width:420px}
+  @media(max-width:520px){.cell{width:26px;height:26px;font-size:13px}}
+</style>
+</head>
+<body>
+<h1>雷<span>区</span></h1>
+<div class="sub">MINESWEEPER · 左键翻开 / 右键插旗 / 双击数字快速展开</div>
+
+<div class="bar" id="levels"></div>
+
+<div class="hud">
+  <div class="box" id="mineCount">💣 10</div>
+  <button class="face" id="face" title="重开">🙂</button>
+  <div class="box" id="time">⏱ 000</div>
+</div>
+
+<div class="board-wrap"><div id="board"></div></div>
+
+<div class="tools">
+  <button id="btnHint">💡 提示安全格</button>
+  <button id="btnAuto">🧠 自动插旗可确定雷</button>
+  <button id="btnRestart">↻ 重新开始</button>
+</div>
+
+<div class="tip">
+  首次点击及其周围 3×3 保证无雷 · 提示只给逻辑上 100% 安全的格子<br>
+  手机可长按插旗，双击数字展开
+</div>
+
+<div class="modal" id="modal">
+  <div class="card">
+    <h2 id="mTitle">通关！</h2>
+    <p class="big" id="mTime">00:00</p>
+    <p id="mDesc"></p>
+    <button id="mBtn">再来一局</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
