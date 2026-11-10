@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>藏头诗机 · 把你的名字写成诗</title>
+<style>
+  :root{
+    --paper:#f6f1e7; --paper-2:#fffdf7; --ink:#2b2622; --ink-soft:#6b6058;
+    --seal:#b5372b; --gold:#8a6d3b; --line:#d9cfc0;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; padding:28px 16px 60px;
+    font-family:"Songti SC","STSong","Noto Serif SC",Georgia,serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 20% 10%, #ffffffaa, transparent 45%),
+      radial-gradient(circle at 85% 80%, #efe4d2aa, transparent 50%),
+      var(--paper);
+    display:flex; justify-content:center;
+  }
+  .wrap{width:100%;max-width:760px}
+  header{text-align:center;margin-bottom:22px}
+  h1{
+    font-size:30px;margin:0 0 6px;letter-spacing:.35em;text-indent:.35em;
+    font-weight:600;
+  }
+  .sub{color:var(--ink-soft);font-size:13px;letter-spacing:.18em}
+  .panel{
+    background:var(--paper-2);border:1px solid var(--line);border-radius:14px;
+    padding:18px;box-shadow:0 8px 30px rgba(80,60,40,.08);
+  }
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  input[type=text]{
+    flex:1 1 240px;min-width:0;padding:12px 14px;font-size:17px;
+    font-family:inherit;color:var(--ink);background:#fff;
+    border:1px solid var(--line);border-radius:10px;outline:none;
+    letter-spacing:.12em;
+  }
+  input[type=text]:focus{border-color:var(--gold);box-shadow:0 0 0 3px #8a6d3b22}
+  button{
+    font-family:inherit;font-size:15px;padding:11px 20px;border-radius:10px;
+    border:1px solid var(--seal);background:var(--seal);color:#fff;cursor:pointer;
+    letter-spacing:.1em;transition:.15s;
+  }
+  button:hover{filter:brightness(1.08)}
+  button.ghost{background:transparent;color:var(--seal)}
+  button.ghost:hover{background:#b5372b12}
+  .opts{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:14px;color:var(--ink-soft);align-items:center}
+  .opts label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  select{
+    font-family:inherit;font-size:14px;padding:6px 8px;border-radius:8px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);
+  }
+  /* 诗纸 */
+  .poem{
+    position:relative;margin-top:22px;padding:34px 28px 30px;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 43px, #e8dfd0 43px 44px),
+      var(--paper-2);
+    border:1px solid var(--line);border-radius:14px;
+    min-height:220px;
+    box-shadow:0 10px 34px rgba(80,60,40,.1);
+    overflow:hidden;
+  }
+  .poem::before{
+    content:"";position:absolute;inset:8px;border:1px solid #b5372b26;border-radius:8px;pointer-events:none;
+  }
+  .poem-lines{position:relative;z-index:1}
+  .line{
+    font-size:26px;line-height:44px;letter-spacing:.22em;white-space:nowrap;
+    animation:ink .5s ease both;
+  }
+  .line .head{color:var(--seal);font-weight:700}
+  .line .rhyme{position:relative}
+  .line .rhyme::after{
+    content:"";position:absolute;left:0;right:0;bottom:2px;height:2px;
+    background:var(--gold);opacity:.55;border-radius:2px;
+  }
+  @keyframes ink{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .seal{
+    margin-top:16px;display:inline-block;padding:4px 5px;border:2px solid var(--seal);
+    color:var(--seal);font-size:12px;line-height:1.15;border-radius:4px;
+    writing-mode:vertical-rl;letter-spacing:.2em;opacity:.85;
+    font-family:"Songti SC",serif;
+  }
+  .meta{margin-top:14px;font-size:13px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap}
+  .meta b{color:var(--seal);font-weight:600}
+  .empty{color:#b7ab9c;font-size:15px;letter-spacing:.1em;line-height:44px}
+  .actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+  .hint{margin-top:10px;font-size:12px;color:#9c9084;letter-spacing:.06em}
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:#2b2622;color:#fff;padding:9px 18px;border-radius:999px;font-size:13px;
+    opacity:0;transition:.25s;pointer-events:none;z-index:9;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%)}
+  @media (max-width:520px){
+    h1{font-size:24px}
+    .line{font-size:20px;line-height:38px;letter-spacing:.15em}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>藏头诗机</h1>
+    <div class="sub">把名字、心愿、任何几个字，写成一首押韵的小诗</div>
+  </header>
+
+  <div class="panel">
+    <div class="row">
+      <input id="text" type="text" maxlength="16" placeholder="输入 2-8 个字，如：今天很好" autocomplete="off">
+      <button id="go">作 · 诗</button>
+    </div>
+    <div class="opts">
+      <label><input type="radio" name="len" value="5" checked> 五言</label>
+      <label><input type="radio" name="len" value="7"> 七言</label>
+      <label>韵部
+        <select id="rhyme"><option value="">自动挑</option></select>
+      </label>
+      <label><input type="checkbox" id="autoNext"> 自动换一版</label>
+    </div>
+    <div class="hint">提示：句尾带金色下划线的字是同韵字；红色首字就是你的藏头。</div>
+  </div>
+
+  <div class="poem" id="poemBox">
+    <div class="poem-lines"><div class="empty">在下面写几个字，上面会落下一首藏头诗。</div></div>
+  </div>
+
+  <div class="actions">
+    <button class="ghost" id="again">换一版</button>
+    <button class="ghost" id="copy">复制诗句</button>
+  </div>
+  <div class="meta" id="meta"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
