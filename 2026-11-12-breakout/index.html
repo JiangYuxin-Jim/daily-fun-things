@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>弹球 · 打砖块</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141a24; --line:#232c3a;
+    --text:#e6edf3; --dim:#7d8590;
+    --accent:#74c0fc; --gold:#ffd166; --red:#ff6b6b; --green:#8ce99a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(800px 500px at 50% -10%, #1b2738 0%, transparent 70%),
+      radial-gradient(600px 400px at 50% 110%, #17112a 0%, transparent 70%),
+      var(--bg);
+    color:var(--text);
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    padding:14px;overflow:hidden;
+  }
+  .shell{
+    width:min(600px,100%);height:min(760px,calc(100vh - 28px));
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .hud{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    font-size:13px;color:var(--dim);
+  }
+  .chip{
+    background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;display:flex;align-items:center;gap:6px;
+    font-variant-numeric:tabular-nums;
+  }
+  .chip b{color:var(--text);font-weight:600;letter-spacing:.02em}
+  .chip.gold b{color:var(--gold)}
+  .chip.red b{color:var(--red)}
+  .spacer{flex:1}
+  .btn{
+    background:var(--panel);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:7px 13px;font-size:13px;cursor:pointer;
+    font-family:inherit;transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:active{transform:scale(.96)}
+  .btn.ghost{background:transparent}
+  .stage{
+    position:relative;flex:1;border-radius:18px;overflow:hidden;
+    background:#0d1117;border:1px solid var(--line);
+    box-shadow:0 24px 60px -30px #000, inset 0 0 60px -30px #74c0fc33;
+    touch-action:none;
+  }
+  canvas{display:block;width:100%;height:100%}
+  .overlay{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    background:rgba(8,11,17,.82);backdrop-filter:blur(6px);
+    text-align:center;padding:24px;flex-direction:column;gap:14px;
+  }
+  .overlay.show{display:flex}
+  .ov-title{font-size:28px;font-weight:700;letter-spacing:.06em;margin:0}
+  .ov-sub{font-size:14px;color:var(--dim);line-height:1.8;margin:0;max-width:380px}
+  .ov-big{font-size:40px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;margin:0}
+  .btn-main{
+    background:linear-gradient(135deg,#4dabf7,#74c0fc);color:#06131f;border:0;
+    padding:12px 30px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;
+    font-family:inherit;letter-spacing:.04em;transition:.18s;
+    box-shadow:0 10px 30px -12px #4dabf7cc;
+  }
+  .btn-main:hover{transform:translateY(-1px);box-shadow:0 14px 36px -12px #4dabf7ee}
+  .btn-main:active{transform:scale(.97)}
+  .keys{font-size:12px;color:#586475;line-height:1.9;text-align:center}
+  kbd{
+    background:#1c2431;border:1px solid #2e3a4b;border-bottom-width:2px;border-radius:6px;
+    padding:1px 6px;font-family:ui-monospace,monospace;font-size:11px;color:#9fb0c4;
+  }
+  .toast{
+    position:absolute;left:50%;top:20%;transform:translate(-50%,-6px);
+    font-size:22px;font-weight:800;color:var(--gold);opacity:0;pointer-events:none;
+    text-shadow:0 0 24px #ffd16688;transition:.28s;letter-spacing:.08em;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,-18px)}
+  @media (max-width:520px){
+    .hud{font-size:12px;gap:6px}
+    .chip{padding:4px 9px}
+    .ov-title{font-size:23px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="hud">
+    <div class="chip">关卡 <b id="hLevel">1</b></div>
+    <div class="chip gold">分数 <b id="hScore">0</b></div>
+    <div class="chip red">生命 <b id="hLives">3</b></div>
+    <div class="chip">最高 <b id="hBest">0</b></div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="btnPause">暂停</button>
+    <button class="btn ghost" id="btnRestart">重来</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="toast" id="toast"></div>
+
+    <div class="overlay show" id="ovStart">
+      <h1 class="ov-title">弹球 · 打砖块</h1>
+      <p class="ov-sub">接住小球，把它打回去，清光所有砖块。<br>打砖块有连击加分，击打点越靠挡板边缘反弹角度越刁钻。</p>
+      <button class="btn-main" id="btnStart">开始游戏</button>
+      <div class="keys">
+        <kbd>←</kbd> <kbd>→</kbd> 或 <kbd>A</kbd> <kbd>D</kbd> 移动 · <kbd>空格</kbd> 发球 · <kbd>P</kbd> 暂停<br>
+        手机 / 鼠标：直接拖动或触摸场地
+      </div>
+    </div>
+
+    <div class="overlay" id="ovPause">
+      <h1 class="ov-title">已暂停</h1>
+      <button class="btn-main" id="btnResume">继续</button>
+    </div>
+
+    <div class="overlay" id="ovClear">
+      <h1 class="ov-title" style="color:var(--green)">通关！</h1>
+      <p class="ov-big" id="clearScore">0</p>
+      <p class="ov-sub" id="clearSub"></p>
+      <button class="btn-main" id="btnNext">下一关</button>
+    </div>
+
+    <div class="overlay" id="ovOver">
+      <h1 class="ov-title" style="color:var(--red)">游戏结束</h1>
+      <p class="ov-big" id="overScore">0</p>
+      <p class="ov-sub" id="overSub"></p>
+      <button class="btn-main" id="btnAgain">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
