@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-13",
+  "day": 15,
+  "name": "提示词工坊",
+  "slug": "prompt-forge",
+  "desc": "本地提示词体检与重写：12 条规则打分、生成结构化优化稿、行级差异对比",
+  "type": "web",
+  "stack": ["HTML", "CSS", "JavaScript"]
+}
