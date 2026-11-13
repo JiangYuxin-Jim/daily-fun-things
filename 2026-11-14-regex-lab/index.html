@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>正则实验室 · regex-lab</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2230;
+    --line: #2a3240;
+    --text: #e6edf3;
+    --dim: #8b949e;
+    --accent: #58a6ff;
+    --hit: #ffd33d;
+    --hit-bg: rgba(255, 211, 61, .18);
+    --ok: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 18px 24px 12px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  h1 { margin: 0; font-size: 19px; letter-spacing: .5px; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--dim); font-size: 12.5px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 18px 24px 60px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  label.field { display: block; font-size: 12px; color: var(--dim); margin-bottom: 6px; letter-spacing: .3px; }
+  .pattern-row { display: flex; align-items: stretch; gap: 0; font-family: var(--mono); }
+  .slash { background: var(--panel-2); border: 1px solid var(--line); border-right: none; border-radius: 8px 0 0 8px; padding: 0 10px; display: flex; align-items: center; color: var(--dim); }
+  #pattern {
+    flex: 1; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    padding: 10px 12px; font: 14px var(--mono); outline: none; min-width: 0;
+  }
+  #pattern:focus { border-color: var(--accent); }
+  #flags {
+    width: 92px; background: var(--panel-2); color: var(--accent); border: 1px solid var(--line); border-left: none;
+    padding: 10px 10px; font: 14px var(--mono); outline: none; text-align: center;
+  }
+  #flags:focus { border-color: var(--accent); }
+  .slash.right { border-left: none; border-right: 1px solid var(--line); border-radius: 0 8px 8px 0; }
+  .flag-hints { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .fh { font: 11px var(--mono); color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; cursor: pointer; user-select: none; }
+  .fh.on { color: var(--accent); border-color: var(--accent); background: rgba(88,166,255,.1); }
+  textarea {
+    width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px; font: 13.5px/1.7 var(--mono); resize: vertical; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .status { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
+  .badge { padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+  .badge.ok { background: rgba(63,185,80,.15); color: var(--ok); }
+  .badge.err { background: rgba(248,81,73,.15); color: var(--danger); }
+  .badge.count { background: rgba(88,166,255,.15); color: var(--accent); font-family: var(--mono); }
+  .errbox { color: var(--danger); font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; margin-top: 8px; }
+  .highlight {
+    font: 13.5px/1.75 var(--mono); white-space: pre-wrap; word-break: break-word;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+    min-height: 120px; max-height: 320px; overflow: auto;
+  }
+  mark { background: var(--hit-bg); color: var(--hit); border-radius: 3px; padding: 0 1px; box-shadow: inset 0 -1px 0 var(--hit); }
+  mark.alt0 { box-shadow: inset 0 -2px 0 #58a6ff; }
+  mark.alt1 { box-shadow: inset 0 -2px 0 #d2a8ff; }
+  mark.alt2 { box-shadow: inset 0 -2px 0 #56d364; }
+  .groups { margin-top: 10px; max-height: 260px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; font-size: 11.5px; letter-spacing: .4px; }
+  td.mono, th.mono { font-family: var(--mono); }
+  td .gval { color: var(--dim); }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; flex-wrap: wrap; }
+  .tab { padding: 7px 14px; cursor: pointer; font-size: 13px; color: var(--dim); border-bottom: 2px solid transparent; user-select: none; }
+  .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .pane { display: none; }
+  .pane.on { display: block; }
+  .tips { display: flex; flex-direction: column; gap: 8px; }
+  .tip { border-left: 3px solid var(--line); padding: 6px 10px; font-size: 12.5px; background: var(--panel-2); border-radius: 0 6px 6px 0; }
+  .tip.danger { border-left-color: var(--danger); }
+  .tip.warn { border-left-color: var(--warn); }
+  .tip .fix { color: var(--dim); margin-top: 3px; }
+  .explain { font-size: 13px; }
+  .explain .row { padding: 2px 0; display: flex; gap: 8px; }
+  .explain .row .main { font-family: var(--mono); color: var(--text); }
+  .explain .row .sub { color: var(--dim); font-size: 12px; }
+  .flag-notes { margin-top: 10px; color: var(--dim); font-size: 12.5px; }
+  .cheat { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+  .chip {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    cursor: pointer; transition: border-color .15s, transform .15s;
+  }
+  .chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .chip .cn { font-size: 12.5px; }
+  .chip .cat { font-size: 10.5px; color: var(--dim); }
+  .chip .pp { font: 11px var(--mono); color: var(--accent); margin-top: 4px; word-break: break-all; }
+  .catTitle { font-size: 12px; color: var(--dim); margin: 14px 0 8px; letter-spacing: .5px; }
+  footer { text-align: center; color: var(--dim); font-size: 12px; padding: 24px 0 40px; }
+  kbd { background: var(--panel-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font: 11px var(--mono); }
+</style>
+</head>
+<body>
+<header>
+  <h1>正则<span>实验室</span> · regex-lab</h1>
+  <div class="sub">本地运行 · 中文报错 · 结构解释 · 回溯风险预警</div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <label class="field" for="pattern">正则表达式</label>
+    <div class="pattern-row">
+      <span class="slash">/</span>
+      <input id="pattern" spellcheck="false" autocomplete="off" value="(?&lt;y&gt;\d{4})-(?&lt;m&gt;\d{2})" />
+      <input id="flags" spellcheck="false" autocomplete="off" value="g" maxlength="6" title="标志位，如 g i m s u" />
+      <span class="slash right">/</span>
+    </div>
+    <div class="flag-hints" id="flagHints"></div>
+    <div class="status" style="margin-top:10px">
+      <span id="statusBadge" class="badge ok">就绪</span>
+      <span id="countBadge" class="badge count">0 处匹配</span>
+      <span class="sub"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> 立即重算</span>
+    </div>
+    <div id="errbox" class="errbox" style="display:none"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <label class="field" for="text">测试文本</label>
+      <textarea id="text" rows="10" spellcheck="false">从 2026-11-14 到 2026-12-01 的排期，
+另外参考 2025-01-09 的旧版本。</textarea>
+    </div>
+    <div class="card">
+      <label class="field">匹配预览</label>
+      <div id="highlight" class="highlight"></div>
+      <div class="groups"><table id="groupTable"></table></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab on" data-pane="paneRisk">体检</div>
+      <div class="tab" data-pane="paneExplain">解释</div>
+      <div class="tab" data-pane="paneCheat">片段库</div>
+    </div>
+    <div id="paneRisk" class="pane on"><div class="tips" id="tips"></div></div>
+    <div id="paneExplain" class="pane"><div class="explain" id="explain"></div><div class="flag-notes" id="flagNotes"></div></div>
+    <div id="paneCheat" class="pane"><div id="cheat"></div></div>
+  </div>
+</div>
+<footer>零依赖 · 纯前端 · 所有计算都在你的浏览器里完成</footer>
+
+<script src="engine.js"></script>
+<script>
+(function () {
+  // engine.js 是 CommonJS（方便 node 测试），浏览器里需要一层 module 兼容
+  var REGEX_LAB = window.REGEX_LAB || (typeof module !== 'undefined' ? null : null);
+  if (!REGEX_LAB) {
+    document.getElementById('errbox').style.display = 'block';
+    document.getElementById('errbox').textContent = 'engine.js 未加载成功';
+    return;
+  }
+  var $ = function (id) { return document.getElementById(id); };
+  var patEl = $('pattern'), flagEl = $('flags'), textEl = $('text');
+
+  var FLAG_HELP = [
+    { f: 'g', t: '全局' },
+    { f: 'i', t: '忽略大小写' },
+    { f: 'm', t: '多行' },
+    { f: 's', t: '. 含换行' },
+    { f: 'u', t: 'Unicode' },
+  ];
+
+  // 标志位快捷开关
+  FLAG_HELP.forEach(function (h) {
+    var el = document.createElement('span');
+    el.className = 'fh';
+    el.dataset.flag = h.f;
+    el.textContent = h.f + ' · ' + h.t;
+    el.title = '点击切换 ' + h.f;
+    el.addEventListener('click', function () {
+      var cur = flagEl.value;
+      flagEl.value = cur.indexOf(h.f) >= 0 ? cur.replace(h.f, '') : cur + h.f;
+      render();
+    });
+    $('flagHints').appendChild(el);
+  });
+
+  function syncFlagChips() {
+    var cur = flagEl.value;
+    Array.prototype.forEach.call(document.querySelectorAll('.fh'), function (el) {
+      el.classList.toggle('on', cur.indexOf(el.dataset.flag) >= 0);
+    });
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function render() {
+    syncFlagChips();
+    var pattern = patEl.value;
+    var flags = flagEl.value;
+    var text = textEl.value;
+    var errbox = $('errbox');
+    var badge = $('statusBadge');
+    var count = $('countBadge');
+    var hl = $('highlight');
+    var table = $('groupTable');
+    var tipsBox = $('tips');
+
+    errbox.style.display = 'none';
+    errbox.textContent = '';
+
+    var matcher = null;
+    var errorMsg = '';
+    try {
+      matcher = REGEX_LAB.buildMatcher(pattern, flags);
+    } catch (e) {
+      errorMsg = e.message;
+    }
+
+    if (errorMsg) {
+      badge.className = 'badge err';
+      badge.textContent = '语法错误';
+      count.textContent = '—';
+      errbox.style.display = 'block';
+      errbox.textContent = errorMsg;
+      hl.innerHTML = '<span style="color:var(--dim)">' + esc(text) + '</span>';
+      table.innerHTML = '';
+    } else {
+      var matches = [];
+      try {
+        matches = matcher.execAll(text);
+      } catch (e) {
+        errorMsg = e.message;
+      }
+      if (errorMsg) {
+        badge.className = 'badge err';
+        badge.textContent = '执行错误';
+        count.textContent = '—';
+        errbox.style.display = 'block';
+        errbox.textContent = errorMsg;
+      } else {
+        badge.className = 'badge ok';
+        badge.textContent = '语法正常';
+        count.textContent = matches.length + ' 处匹配';
+        var parts = REGEX_LAB.segment(text, matches);
+        hl.innerHTML = parts.map(function (p) {
+          if (!p.hit) return esc(p.text);
+          return '<mark class="alt' + (p.matchIndex % 3) + '" title="匹配 #' + (p.matchIndex + 1) + '">' + esc(p.text) + '</mark>';
+        }).join('') || '<span style="color:var(--dim)">（空文本）</span>';
+        renderGroups(table, matches, matcher);
+      }
+    }
+
+    renderRisk(tipsBox, pattern);
+    renderExplain(pattern, flags);
+  }
+
+  function renderGroups(table, matches, matcher) {
+    if (!matches.length) {
+      table.innerHTML = '<tr><td class="gval">没有匹配。试着放宽条件，或检查标志位 g 是否勾上。</td></tr>';
+      return;
+    }
+    var namedKeys = Object.keys(matches[0].named || {});
+    var cols = '<tr><th>#</th><th>位置</th><th>匹配文本</th>';
+    var hasGroups = (matches[0].groups || []).length > 0;
+    if (hasGroups) cols += '<th>捕获组</th>';
+    cols += '</tr>';
+    var rows = matches.slice(0, 200).map(function (m, i) {
+      var g;
+      if (hasGroups) {
+        var named = m.named || {};
+        var parts = (m.groups || []).map(function (v, gi) {
+          if (v === undefined) return '<span class="gval">#' + (gi + 1) + ' 未参与</span>';
+          var name = Object.keys(named).filter(function (k) { return named[k] === v; })[0];
+          return '<span class="gval">#' + (gi + 1) + (name ? ' ' + esc(name) : '') + '</span> "' + esc(v) + '"';
+        });
+        g = parts.join('<br>');
+      }
+      return '<tr><td class="mono">' + (i + 1) + '</td><td class="mono">' + m.index + '–' + m.end +
+        '</td><td class="mono">' + (m.match === '' ? '<span class="gval">（空匹配）</span>' : esc(m.match)) + '</td>' +
+        (hasGroups ? '<td class="mono">' + g + '</td>' : '') + '</tr>';
+    });
+    if (matches.length > 200) rows.push('<tr><td colspan="4" class="gval">仅显示前 200 条，共 ' + matches.length + ' 条</td></tr>');
+    table.innerHTML = cols + rows.join('');
+  }
+
+  function renderRisk(box, pattern) {
+    var tips = [];
+    try {
+      tips = REGEX_LAB.riskScan(pattern);
+      var staticIssues = REGEX_LAB.scan(pattern).issues || [];
+      staticIssues.forEach(function (it) {
+        if (it.level === 'warn') tips.push({ level: 'warn', msg: it.msg + '（位置 ' + it.pos + '）' });
+      });
+    } catch (e) {
+      tips = [{ level: 'warn', msg: '体检器无法解析：' + e.message }];
+    }
+    if (!tips.length) {
+      box.innerHTML = '<div class="tip"><span style="color:var(--ok)">✓</span> 没发现明显的回溯风险。常规的锚定、字符类、单层量词都是安全的。</div>';
+      return;
+    }
+    box.innerHTML = tips.map(function (t) {
+      return '<div class="tip ' + (t.level || 'warn') + '"><div>' + (t.level === 'danger' ? '⚠ ' : '· ') + esc(t.msg) + '</div>' +
+        (t.fix ? '<div class="fix">建议：' + esc(t.fix) + '</div>' : '') + '</div>';
+    }).join('');
+  }
+
+  function renderExplain(pattern, flags) {
+    var box = $('explain');
+    var notes = $('flagNotes');
+    var r;
+    try { r = REGEX_LAB.explain(pattern, flags); }
+    catch (e) { box.innerHTML = '<div class="gval">无法解释：' + esc(e.message) + '</div>'; notes.textContent = ''; return; }
+    if (!r.lines.length) {
+      box.innerHTML = '<div class="gval">空正则：能匹配任何位置（零宽）。</div>';
+    } else {
+      box.innerHTML = r.lines.map(function (l) {
+        return '<div class="row"><div class="main" style="padding-left:' + (l.depth * 16) + 'px">' + esc(l.main) + '</div>' +
+          (l.sub ? '<div class="sub">' + esc(l.sub) + '</div>' : '') + '</div>';
+      }).join('');
+    }
+    notes.innerHTML = r.flagNotes.length ? '<div>标志位：' + r.flagNotes.map(esc).join('；') + '</div>' : '';
+  }
+
+  function renderCheat() {
+    var byCat = {};
+    REGEX_LAB.CHEATSHEET.forEach(function (c) {
+      (byCat[c.cat] = byCat[c.cat] || []).push(c);
+    });
+    var html = '';
+    Object.keys(byCat).forEach(function (cat) {
+      html += '<div class="catTitle">' + esc(cat) + '</div><div class="cheat">';
+      byCat[cat].forEach(function (c, i) {
+        html += '<div class="chip" data-cat="' + esc(cat) + '" data-i="' + i + '">' +
+          '<div class="cn">' + esc(c.name) + '</div>' +
+          '<div class="pp">/' + esc(c.pattern) + '/' + esc(c.flags) + '</div></div>';
+      });
+      html += '</div>';
+    });
+    $('cheat').innerHTML = html;
+    Array.prototype.forEach.call($('cheat').querySelectorAll('.chip'), function (el) {
+      el.addEventListener('click', function () {
+        var cat = el.dataset.cat, i = Number(el.dataset.i);
+        var item = byCat[cat][i];
+        patEl.value = item.pattern;
+        flagEl.value = item.flags;
+        if (item.sample) textEl.value = item.sample;
+        render();
+      });
+    });
+  }
+
+  // tabs
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
+    t.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.remove('on'); });
+      Array.prototype.forEach.call(document.querySelectorAll('.pane'), function (x) { x.classList.remove('on'); });
+      t.classList.add('on');
+      $(t.dataset.pane).classList.add('on');
+    });
+  });
+
+  var timer = null;
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(render, 120);
+  }
+  [patEl, flagEl, textEl].forEach(function (el) { el.addEventListener('input', schedule); });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); clearTimeout(timer); render(); }
+  });
+
+  renderCheat();
+  render();
+})();
+</script>
+</body>
+</html>
