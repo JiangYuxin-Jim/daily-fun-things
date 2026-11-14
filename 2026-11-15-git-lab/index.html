@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git 演播室 · git-graph-lab</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e;
+    --acc:#3fb950; --acc2:#58a6ff; --warn:#d29922; --err:#f85149;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 20% -10%,#1b2431,#0d1117 60%);
+       color:var(--fg);font:14px/1.6 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       min-height:100vh}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);
+         background:rgba(13,17,23,.85);backdrop-filter:blur(8px);position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;letter-spacing:.5px}
+  header .sub{color:var(--dim);font-size:12px}
+  .badge{font:11px var(--mono);padding:2px 8px;border:1px solid var(--line);border-radius:20px;color:var(--dim)}
+  main{display:grid;grid-template-columns:220px 1fr 380px;gap:14px;padding:14px;align-items:start}
+  @media (max-width:1000px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  .card h2{font-size:12px;margin:0;padding:10px 12px;color:var(--dim);border-bottom:1px solid var(--line);
+           letter-spacing:1px;text-transform:uppercase}
+  /* 关卡 */
+  .levels{list-style:none;margin:0;padding:8px}
+  .levels li{padding:8px 10px;border-radius:7px;cursor:pointer;display:flex;gap:8px;align-items:flex-start;
+              font-size:13px;color:var(--dim)}
+  .levels li:hover{background:#1f2630}
+  .levels li.active{background:#1f2b3a;color:var(--fg);box-shadow:inset 0 0 0 1px #2b3a50}
+  .levels li.done{color:var(--acc)}
+  .levels li .num{font:11px var(--mono);opacity:.7}
+  .goal{padding:10px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--dim)}
+  .goal b{color:var(--fg);font-weight:600}
+  /* 图 */
+  #graphWrap{position:relative;overflow:auto;padding:10px;min-height:320px}
+  svg{display:block}
+  .node{cursor:pointer}
+  .node text{font:12px var(--mono);fill:var(--fg)}
+  .node.faded text{opacity:.35}
+  .branchlabel{font:10px var(--mono);fill:#0d1117;font-weight:600}
+  .mergeNode{stroke:var(--warn);stroke-width:2.5;fill:#2b2413}
+  /* 控制台 */
+  .term{display:flex;flex-direction:column;height:100%;min-height:360px}
+  #screen{flex:1;overflow:auto;padding:10px 12px;font:12.5px/1.55 var(--mono);white-space:pre-wrap;
+          word-break:break-word}
+  #screen .cmd{color:var(--acc2)}
+  #screen .out{color:#c9d1d9}
+  #screen .err{color:var(--err)}
+  #screen .ok{color:var(--acc)}
+  form{display:flex;border-top:1px solid var(--line)}
+  form span{padding:8px 0 8px 12px;color:var(--acc);font:12.5px/1.5 var(--mono)}
+  form input{flex:1;background:transparent;border:0;outline:0;color:var(--fg);padding:8px 10px;
+             font:12.5px var(--mono)}
+  .bar{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line);flex-wrap:wrap}
+  button{background:#21262d;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 10px;
+         font-size:12px;cursor:pointer}
+  button:hover{background:#2d333b;border-color:#444c56}
+  button.ghost{background:transparent}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px}
+  .chips button{font:11.5px var(--mono)}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);opacity:0;transition:.25s;
+         background:#1f6feb;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;pointer-events:none;
+         box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #toast.err{background:#b62324}
+  .meta{display:flex;gap:14px;font-size:11.5px;color:var(--dim);padding:0 12px 10px}
+  kbd{font:11px var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+      padding:0 4px;color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>⎇ Git 演播室</h1>
+  <span class="sub">敲命令，看分支图长出来</span>
+  <span class="badge">纯本地 · 零依赖</span>
+</header>
+
+<main>
+  <section class="card">
+    <h2>关卡</h2>
+    <ul class="levels" id="levels"></ul>
+    <div class="goal" id="goal"></div>
+  </section>
+
+  <section class="card">
+    <h2>分支图 <span id="headInfo" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div id="graphWrap"><svg id="graph" width="100%" height="300"></svg></div>
+    <div class="meta" id="meta"></div>
+  </section>
+
+  <section class="card term">
+    <h2>终端</h2>
+    <div id="screen"></div>
+    <form id="f"><span>$</span><input id="cmd" autocomplete="off" spellcheck="false" placeholder="git status"></form>
+    <div class="chips" id="chips"></div>
+    <div class="bar">
+      <button id="reset">重开一局</button>
+      <button id="undo" class="ghost">撤销上一步</button>
+      <button id="sample" class="ghost">填入本关参考命令</button>
+      <button id="help" class="ghost">帮助</button>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script src="engine.js"></script>
+<script>
+(function () {
+  const G = window.GitLab;
+  const $ = (id) => document.getElementById(id);
+  const screen = $('screen'), input = $('cmd'), svg = $('graph');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  let state = G.newState();
+  let history = [];
+  let level = 0;
+  let solved = new Set();
+
+  function toast(msg, err) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'show' + (err ? ' err' : '');
+    clearTimeout(t._t);
+    t._t = setTimeout(() => { t.className = err ? 'err' : ''; }, 1900);
+  }
+
+  function print(text, cls) {
+    const div = document.createElement('div');
+    div.className = cls || 'out';
+    div.textContent = text;
+    screen.appendChild(div);
+    screen.scrollTop = screen.scrollHeight;
+  }
+
+  function renderLevels() {
+    const ul = $('levels');
+    ul.innerHTML = '';
+    G.LEVELS.forEach((lv, i) => {
+      const li = document.createElement('li');
+      if (i === level) li.className = 'active';
+      else if (solved.has(lv.id)) li.className = 'done';
+      li.innerHTML = '<span class="num">' + String(lv.id).padStart(2, '0') + '</span>' +
+        '<span>' + (solved.has(lv.id) ? '✓ ' : '') + lv.title + '</span>';
+      li.onclick = () => { level = i; renderLevels(); renderGoal(); };
+      ul.appendChild(li);
+    });
+  }
+
+  function renderGoal() {
+    const lv = G.LEVELS[level];
+    $('goal').innerHTML = '<b>目标：</b>' + lv.goal + '<br><span style="color:#6e7681">提示：' +
+      lv.hint + '</span>';
+  }
+
+  function checkLevels() {
+    G.LEVELS.forEach((lv, i) => {
+      if (!solved.has(lv.id) && lv.check(state)) {
+        solved.add(lv.id);
+        toast('✓ 关卡 ' + lv.id + '「' + lv.title + '」通过！');
+        if (i === level) {
+          renderLevels(); renderGoal();
+          print('✓ 达成：' + lv.title + '（' + lv.goal + '）', 'ok');
+        }
+      }
+    });
+    renderLevels();
+  }
+
+  function renderGraph() {
+    const L = G.layout(state);
+    const laneW = 34, rowH = 44, padL = 22, padT = 30;
+    const maxY = L.nodes.reduce((m, n) => Math.max(m, n.y), 0);
+    const maxL = L.nodes.reduce((m, n) => Math.max(m, n.lane), 0);
+    const width = Math.max(520, padL * 2 + (maxL + 1) * laneW + 240);
+    const height = Math.max(260, padT + (maxY + 1) * rowH + 20);
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.setAttribute('height', height);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const pos = {};
+    L.nodes.forEach(n => pos[n.id] = { x: padL + n.lane * laneW, y: padT + n.y * rowH });
+    const colorOf = (lane) => ['#3fb950', '#58a6ff', '#d29922', '#bc8cff', '#ff7b72', '#39c5cf'][lane % 6];
+
+    const g = document.createElementNS(NS, 'g');
+    svg.appendChild(g);
+
+    // 边
+    L.edges.forEach(e => {
+      const a = pos[e.from], b = pos[e.to];
+      if (!a || !b) return;
+      const p = document.createElementNS(NS, 'path');
+      let d;
+      if (e.fl === e.tl) {
+        d = 'M' + a.x + ',' + (a.y - 9) + ' L' + b.x + ',' + (b.y + 9);
+      } else {
+        const my = (a.y + b.y) / 2;
+        d = 'M' + a.x + ',' + (a.y - 9) +
+            ' C' + a.x + ',' + my + ' ' + b.x + ',' + my + ' ' + b.x + ',' + (b.y + 9);
+      }
+      p.setAttribute('d', d);
+      p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', colorOf(e.tl));
+      p.setAttribute('stroke-width', 2);
+      p.setAttribute('opacity', .75);
+      g.appendChild(p);
+    });
+
+    // 节点
+    L.nodes.forEach(n => {
+      const p = pos[n.id];
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', 8);
+      const isMerge = n.parents.length > 1;
+      c.setAttribute('class', 'node' + (isMerge ? ' mergeNode' : ''));
+      c.setAttribute('fill', isMerge ? '#2b2413' : colorOf(n.lane));
+      c.setAttribute('stroke', isMerge ? '#d29922' : '#0d1117');
+      c.setAttribute('stroke-width', isMerge ? 2.5 : 2);
+      if (n.isHead) {
+        const ring = document.createElementNS(NS, 'circle');
+        ring.setAttribute('cx', p.x); ring.setAttribute('cy', p.y); ring.setAttribute('r', 13);
+        ring.setAttribute('fill', 'none');
+        ring.setAttribute('stroke', '#e6edf3');
+        ring.setAttribute('stroke-dasharray', '2 3');
+        ring.setAttribute('opacity', .6);
+        g.appendChild(ring);
+      }
+      g.appendChild(c);
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', p.x + 18);
+      t.setAttribute('y', p.y + 4);
+      t.textContent = n.id + '  ' + n.msg;
+      g.appendChild(t);
+      const sub = document.createElementNS(NS, 'text');
+      sub.setAttribute('x', p.x + 18);
+      sub.setAttribute('y', p.y + 18);
+      sub.setAttribute('style', 'font:10.5px var(--mono);fill:#6e7681');
+      sub.textContent = n.parents.length > 1 ? '合并提交 · 父 ' + n.parents.join(' + ')
+        : n.isHead ? 'HEAD → ' + state.head.branch : (n.parents[0] ? '父 ' + n.parents[0] : '根提交');
+      g.appendChild(sub);
+    });
+
+    // 分支标签
+    L.nodes.forEach(n => {
+      if (!n.labels || !n.labels.length) return;
+      const p = pos[n.id];
+      n.labels.forEach((b, i) => {
+        const w = 16 + b.length * 7;
+        const rx = p.x + 18, ry = p.y - 24 - i * 20;
+        const r = document.createElementNS(NS, 'rect');
+        r.setAttribute('x', rx); r.setAttribute('y', ry); r.setAttribute('width', w); r.setAttribute('height', 16);
+        r.setAttribute('rx', 8);
+        r.setAttribute('fill', b === state.head.branch ? '#3fb950' : '#58a6ff');
+        g.appendChild(r);
+        const tx = document.createElementNS(NS, 'text');
+        tx.setAttribute('x', rx + 8); tx.setAttribute('y', ry + 11.5);
+        tx.setAttribute('class', 'branchlabel');
+        tx.textContent = (b === state.head.branch ? '⎇ ' : '') + b;
+        g.appendChild(tx);
+      });
+    });
+
+    $('headInfo').textContent = ' · ' + (state.detached ? '分离 HEAD' : state.head.branch) +
+      (state.head.commit ? ' @ ' + state.head.commit : '（空）');
+    $('meta').textContent = '提交 ' + state.commits.length +
+      ' 个 · 分支 ' + Object.keys(state.branches).length +
+      ' 个 · 暂存 ' + Object.keys(state.index).length + ' 个文件 · 已完成关卡 ' + solved.size + '/' + G.LEVELS.length;
+  }
+
+  let lastLines = [];
+  function runLine(line) {
+    print('$ ' + line, 'cmd');
+    lastLines.push(line);
+    if (lastLines.length > 30) lastLines.shift();
+    const r = G.run(state, line);
+    if (r.out === 'CLEAR') { screen.innerHTML = ''; return; }
+    if (r.out) print(r.out, /错误|失败|冲突|暂不支持/.test(r.out) ? 'err' : 'out');
+    history.push(state);
+    if (history.length > 50) history.shift();
+    state = r.state;
+    renderGraph();
+    checkLevels();
+  }
+
+  $('f').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const line = input.value.trim();
+    input.value = '';
+    if (!line) return;
+    runLine(line);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp') {
+      // 复用最近一条历史，简化交互
+      e.preventDefault();
+      if (lastLines.length) input.value = lastLines[lastLines.length - 1];
+    }
+  });
+
+  $('reset').onclick = () => {
+    state = G.newState(); history = []; screen.innerHTML = '';
+    renderGraph(); renderAll(); print('新的一局，先 git init 吧。');
+  };
+  $('undo').onclick = () => {
+    if (!history.length) { toast('没有可撤销的步骤', true); return; }
+    state = history.pop();
+    renderGraph(); renderAll(); toast('已撤销一步');
+  };
+  $('sample').onclick = () => {
+    const lv = G.LEVELS[level];
+    if (!lv.sample) { toast('本关没有参考命令，靠你自己啦', true); return; }
+    lv.sample.split('\n').forEach(l => runLine(l));
+    toast('已执行参考命令');
+  };
+  $('help').onclick = () => runLine('help');
+
+  const CHIPS = ['git status', 'git init', 'git add .', 'git commit -m "说明"',
+                 'git branch dev', 'git switch -c dev', 'git merge dev', 'git branch'];
+  function renderChips() {
+    const c = $('chips');
+    c.innerHTML = '';
+    CHIPS.forEach(t => {
+      const b = document.createElement('button');
+      b.textContent = t;
+      b.onclick = () => runLine(t);
+      c.appendChild(b);
+    });
+  }
+
+  function renderAll() { renderLevels(); renderGoal(); renderChips(); }
+
+  // 首次进入给点提示
+  print('Git 演播室 —— 输入命令，右边分支图会实时长出来。', 'ok');
+  print('提示：本模拟器用「git add」代表修改文件内容，每次 add 都会让文件内容前进一版，这样才能在 merge 时撞出真实冲突。');
+  print('输入 help 看命令清单；点左侧关卡按顺序闯关。', 'out');
+  renderGraph();
+  renderAll();
+  checkLevels();
+  input.focus();
+})();
+</script>
+</body>
+</html>
