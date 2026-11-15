@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token 账房 · token-cost</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2128; --line:#30363d;
+  --txt:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --green:#3fb950;
+  --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:radial-gradient(1200px 600px at 20% -10%,#1b2735 0%,var(--bg) 55%);
+  color:var(--txt);font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  min-height:100vh;padding:24px 16px 60px;
+}
+.wrap{max-width:1080px;margin:0 auto}
+header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+h1{font-size:26px;margin:0;letter-spacing:.5px}
+h1 span{color:var(--accent)}
+.sub{color:var(--dim);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:16px}
+.card h2{font-size:14px;margin:0 0 14px;color:var(--dim);font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+textarea{
+  width:100%;height:150px;resize:vertical;background:var(--bg);color:var(--txt);
+  border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:13px/1.7 ui-monospace,Menlo,Consolas,monospace;
+}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent)}
+label{display:block;font-size:12px;color:var(--dim);margin-bottom:5px}
+input[type=number],input[type=text],select{
+  width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;font:13px ui-monospace,Menlo,Consolas,monospace;
+}
+.row{display:flex;gap:10px;margin-bottom:12px}
+.row>div{flex:1;min-width:0}
+.badge{
+  display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:999px;padding:3px 11px;font-size:12px;color:var(--dim);margin:0 6px 6px 0;
+}
+.badge b{color:var(--txt);font-weight:600}
+.big{font-size:30px;font-weight:700;letter-spacing:.5px;font-variant-numeric:tabular-nums}
+.big.green{color:var(--green)} .big.amber{color:var(--amber)} .big.red{color:var(--red)}
+.money-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px}
+@media(max-width:700px){.money-grid{grid-template-columns:1fr}}
+.mbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.mbox .lbl{font-size:11px;color:var(--dim);letter-spacing:.3px;margin-bottom:4px}
+.mbox .val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--dim);font-weight:500;font-size:11.5px;letter-spacing:.3px}
+th:first-child,td:first-child{text-align:left}
+tbody tr{cursor:pointer;transition:background .12s}
+tbody tr:hover{background:var(--panel2)}
+tbody tr.sel{background:rgba(88,166,255,.12)}
+tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.cheap{color:var(--green)}
+.bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .25s}
+button{
+  background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;
+  padding:7px 14px;font-size:13px;cursor:pointer;transition:.15s;
+}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
+button.primary:hover{filter:brightness(1.12);color:#0d1117}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer}
+.chip:hover{border-color:var(--purple);color:var(--purple)}
+.hint{font-size:12px;color:var(--dim);margin-top:10px}
+.hint code{background:var(--panel2);padding:1px 5px;border-radius:4px;color:var(--amber)}
+.split{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.note{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.7}
+kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Token <span>账房</span></h1>
+    <div class="sub">粘贴文本算 token，顺手把账单算清 · 纯本地，内容不上传</div>
+  </header>
+
+  <div class="card">
+    <h2>① 估算 token</h2>
+    <div class="grid">
+      <div>
+        <textarea id="text" placeholder="把要发出去的内容粘进来…&#10;中文一个字≈1 token，英文约 4 字符≈1 token"></textarea>
+        <div class="chips" id="samples">
+          <span class="chip" data-s="short">短句</span>
+          <span class="chip" data-s="zh">中文长文</span>
+          <span class="chip" data-s="code">代码片段</span>
+          <span class="chip" data-s="prompt">提示词</span>
+        </div>
+        <div class="hint" id="stats"></div>
+      </div>
+      <div>
+        <div class="row">
+          <div>
+            <label>模型</label>
+            <select id="model"></select>
+          </div>
+          <div style="flex:0 0 100px">
+            <label>输入 $/1M</label>
+            <input type="number" id="priceIn" step="0.001" min="0">
+          </div>
+          <div style="flex:0 0 100px">
+            <label>输出 $/1M</label>
+            <input type="number" id="priceOut" step="0.001" min="0">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>输出 token（模型回复长度）</label>
+            <input type="number" id="outTokens" value="500" min="0" step="50">
+          </div>
+          <div>
+            <label>调用次数</label>
+            <input type="number" id="calls" value="1" min="1" step="1">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>其中命中缓存的输入 token（可空）</label>
+            <input type="number" id="cached" value="0" min="0" step="100">
+          </div>
+          <div>
+            <label>预算 $（反推能跑几次）</label>
+            <input type="number" id="budget" value="10" min="0" step="1">
+          </div>
+        </div>
+        <div class="money-grid">
+          <div class="mbox">
+            <div class="lbl">单次成本</div>
+            <div class="val" id="mOnce">$0</div>
+          </div>
+          <div class="mbox">
+            <div class="lbl">合计（含次数）</div>
+            <div class="val" id="mTotal">$0</div>
+          </div>
+          <div class="mbox">
+            <div class="lbl">缓存省下</div>
+            <div class="val" id="mSaved" style="color:var(--green)">$0</div>
+          </div>
+        </div>
+        <div class="hint" id="budgetOut"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 同一份输入，各家多少钱</h2>
+    <div class="split">
+      <button class="primary" id="btnCopy">复制账单</button>
+      <span class="hint" style="margin:0" id="cmpHint">点任意一行可切换为当前模型</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="cmp">
+        <thead>
+          <tr><th>模型</th><th>输入</th><th>输出</th><th>单次</th><th>合计</th><th>相对最贵</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="note">
+      价格单位 USD / 1M tokens，为 2026 年公开报价的参考值，可能已变动 —— 可随时手动改上面两个输入框。
+      换汇按 <b>1 USD = 7.2 CNY</b> 折算，需要精确请自行调整。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>③ 月度账单推演</h2>
+    <div class="chips" id="scenarios" style="margin-bottom:14px"></div>
+    <div class="grid">
+      <div>
+        <div class="row">
+          <div><label>每次输入 token</label><input type="number" id="sIn" value="3000" min="0" step="100"></div>
+          <div><label>每次输出 token</label><input type="number" id="sOut" value="800" min="0" step="100"></div>
+        </div>
+        <div class="row">
+          <div><label>每天调用次数</label><input type="number" id="sCalls" value="40" min="0" step="1"></div>
+          <div><label>缓存命中率 %</label><input type="number" id="sCache" value="0" min="0" max="100" step="5"></div>
+        </div>
+        <div class="hint">按当前选中的模型计算。</div>
+      </div>
+      <div>
+        <div class="money-grid" style="grid-template-columns:1fr 1fr">
+          <div class="mbox"><div class="lbl">每天</div><div class="val" id="dDay">$0</div></div>
+          <div class="mbox"><div class="lbl">每月（30 天）</div><div class="val" id="dMonth">$0</div></div>
+          <div class="mbox"><div class="lbl">折合人民币/月</div><div class="val" id="dCny">¥0</div></div>
+          <div class="mbox"><div class="lbl">每月 token 总量</div><div class="val" id="dTokens" style="font-size:16px">0</div></div>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:11px;color:var(--dim);margin-bottom:4px">最便宜的模型能省</div>
+          <div class="bar"><i id="saveBar" style="width:0%;background:var(--green)"></i></div>
+          <div class="hint" id="saveTxt"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="text-align:center;margin-top:22px">
+    Token 数由启发式估算（中文≈1 字 1 token，英文≈4 字符 1 token），与真实 tokenizer 通常相差 ±15%。
+    要精确请以服务商返回的 usage 为准。<br>
+    快捷键 <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 复制账单
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+(function(){
+  const T = window.TokenCost;
+  const $ = id => document.getElementById(id);
+  const el = {
+    text:$('text'), model:$('model'), priceIn:$('priceIn'), priceOut:$('priceOut'),
+    outTokens:$('outTokens'), calls:$('calls'), cached:$('cached'), budget:$('budget'),
+    mOnce:$('mOnce'), mTotal:$('mTotal'), mSaved:$('mSaved'), budgetOut:$('budgetOut'),
+    stats:$('stats'), cmpBody:$('cmp').querySelector('tbody'), cmpHint:$('cmpHint'),
+    sIn:$('sIn'), sOut:$('sOut'), sCalls:$('sCalls'), sCache:$('sCache'),
+    dDay:$('dDay'), dMonth:$('dMonth'), dCny:$('dCny'), dTokens:$('dTokens'),
+    saveBar:$('saveBar'), saveTxt:$('saveTxt'), scenarios:$('scenarios'),
+  };
+
+  const SAMPLES = {
+    short:'帮我把这句话改得更客气一点。',
+    zh:'在软件开发中，清晰的沟通比聪明的代码更重要。\n一个团队如果花更多时间在需求理解上，往往能省下后面几倍的返工时间。\n所以每次动手写代码之前，先问一句：我们真的在解决同一个问题吗？',
+    code:'function estimateTokens(text) {\n  if (!text) return 0;\n  let n = 0;\n  for (const ch of text) n += 1;\n  return n;\n}',
+    prompt:'你是一位资深的技术编辑。请阅读下面的用户需求，输出一份结构化的实现方案。\n\n要求：\n1. 先用三句话概括问题本质\n2. 给出 2-3 个候选方案，并比较优缺点\n3. 推荐其中一个，说明理由\n4. 列出实现时最容易踩的三个坑\n\n输出格式：Markdown，总长度不超过 800 字。',
+  };
+
+  // 填充模型下拉
+  T.MODELS.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.id; o.textContent = m.name;
+    el.model.appendChild(o);
+  });
+  el.model.value = 'gpt-5.1';
+
+  function currentModel(){
+    return T.MODELS.find(m => m.id === el.model.value) || T.MODELS[T.MODELS.length-1];
+  }
+  function price(){
+    return {
+      in: Number(el.priceIn.value) || 0,
+      out: Number(el.priceOut.value) || 0,
+      cached: currentModel().cached == null ? null : (currentModel().cached * (Number(el.priceOut.value)||0) / (currentModel().out || 1)),
+    };
+  }
+  // 缓存价按模型表比例换算，若手动改了价格也能大致跟随
+  function syncPriceFromModel(){
+    const m = currentModel();
+    el.priceIn.value = m.in;
+    el.priceOut.value = m.out;
+    refresh();
+  }
+
+  function inputTokens(){
+    const txt = el.text.value;
+    return T.estimateTokens(txt).tokens;
+  }
+
+  function usage(){
+    const inTok = inputTokens();
+    const cached = Math.min(Number(el.cached.value)||0, inTok);
+    return {
+      inputTokens: inTok,
+      outputTokens: Number(el.outTokens.value)||0,
+      cachedInputTokens: cached,
+      calls: Math.max(1, Number(el.calls.value)||1),
+    };
+  }
+
+  function costBadge(v){
+    // 按单次成本着色：<1 分 绿，<10 分 黄，否则红
+    if (v < 0.01) return 'green';
+    if (v < 0.1) return 'amber';
+    return 'red';
+  }
+
+  function refresh(){
+    const est = T.estimateTokens(el.text.value);
+    el.stats.innerHTML = est.tokens
+      ? `<span class="badge">估算 <b>${T.numFmt(est.tokens)}</b> tokens</span>
+         <span class="badge">汉字 <b>${T.numFmt(est.cjk)}</b></span>
+         <span class="badge">英文 <b>${T.numFmt(est.latin)}</b></span>
+         <span class="badge">标点 <b>${T.numFmt(est.punct)}</b></span>
+         <span class="badge">行数 <b>${est.lines}</b></span>`
+      : '<span class="badge">还没有内容</span>';
+
+    const p = price();
+    const u = usage();
+    const c = T.computeCost(p, u);
+
+    el.mOnce.textContent = T.money(c.perCall);
+    el.mOnce.className = 'val big-color';
+    el.mOnce.style.color = 'var(--' + costBadge(c.perCall) + ')';
+    el.mTotal.textContent = T.money(c.total);
+    el.mSaved.textContent = c.cacheSaved > 0 ? T.money(c.cacheSaved) : '$0';
+
+    const bud = Number(el.budget.value)||0;
+    const bd = T.budgetBreakdown(p, bud, u);
+    el.budgetOut.innerHTML = bd.perCall > 0
+      ? `预算 <b style="color:var(--txt)">$${bud}</b> 可以跑 <b style="color:var(--accent)">${T.numFmt(bd.calls)}</b> 次这样的调用`
+      : '当前单次成本为 0，预算无限';
+
+    renderCompare(u);
+    renderMonthly(p);
+  }
+
+  function renderCompare(u){
+    const rows = T.MODELS.map(m => {
+      const c = T.computeCost({ in:m.in, out:m.out, cached:m.cached }, u);
+      return { m, c };
+    }).sort((a,b) => a.c.perCall - b.c.perCall);
+    const max = rows[rows.length-1].c.perCall || 1;
+    const cur = el.model.value;
+
+    el.cmpBody.innerHTML = rows.map(({m,c}) => {
+      const pct = max > 0 ? (c.perCall / max * 100) : 0;
+      const isCheap = rows[0].m.id === m.id;
+      return `<tr data-id="${m.id}" class="${m.id===cur?'sel':''}">
+        <td>${m.name}${isCheap?' <span class="cheap">最省</span>':''}</td>
+        <td>$${m.in}</td>
+        <td>$${m.out}</td>
+        <td style="color:var(--${costBadge(c.perCall)})">${T.money(c.perCall)}</td>
+        <td>${T.money(c.total)}</td>
+        <td style="min-width:110px">
+          <div class="bar"><i style="width:${pct}%"></i></div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    el.cmpBody.querySelectorAll('tr').forEach(tr => {
+      tr.onclick = () => {
+        el.model.value = tr.dataset.id;
+        syncPriceFromModel();
+      };
+    });
+  }
+
+  function renderMonthly(p){
+    const perCallIn = Number(el.sIn.value)||0;
+    const perCallOut = Number(el.sOut.value)||0;
+    const callsPerDay = Number(el.sCalls.value)||0;
+    const hit = Math.min(100, Math.max(0, Number(el.sCache.value)||0)) / 100;
+
+    const dayCost = T.computeCost(p, {
+      inputTokens: perCallIn * callsPerDay,
+      outputTokens: perCallOut * callsPerDay,
+      cachedInputTokens: perCallIn * callsPerDay * hit,
+      calls: 1,
+    }).perCall;
+
+    const monthCost = dayCost * 30;
+    const tokensMonth = (perCallIn + perCallOut) * callsPerDay * 30;
+
+    el.dDay.textContent = T.money(dayCost);
+    el.dMonth.textContent = T.money(monthCost);
+    el.dCny.textContent = '¥' + (monthCost * 7.2).toFixed(monthCost * 7.2 < 10 ? 2 : 0);
+    el.dTokens.textContent = T.numFmt(tokensMonth);
+
+    // 找最便宜的模型算省钱幅度
+    let best = null, bestCost = Infinity;
+    T.MODELS.forEach(m => {
+      const v = T.computeCost({ in:m.in, out:m.out, cached:m.cached }, {
+        inputTokens: perCallIn * callsPerDay,
+        outputTokens: perCallOut * callsPerDay,
+        cachedInputTokens: perCallIn * callsPerDay * hit,
+        calls: 1,
+      }).perCall * 30;
+      if (v < bestCost) { bestCost = v; best = m; }
+    });
+
+    const savePct = monthCost > 0 ? Math.max(0, (monthCost - bestCost) / monthCost * 100) : 0;
+    el.saveBar.style.width = savePct.toFixed(1) + '%';
+    el.saveTxt.innerHTML = monthCost > bestCost
+      ? `换成 <b style="color:var(--txt)">${best.name}</b> 约 ${T.money(bestCost)}/月，省下 <b style="color:var(--green)">${savePct.toFixed(0)}%</b>`
+      : `当前已是最省的模型 👑`;
+  }
+
+  function billText(){
+    const p = price(), u = usage(), c = T.computeCost(p, u);
+    const m = currentModel();
+    return [
+      '【Token 账房 · 账单】',
+      '模型：' + m.name,
+      '输入 token：' + T.numFmt(u.inputTokens) + (u.cachedInputTokens ? '（其中缓存 ' + T.numFmt(u.cachedInputTokens) + '）' : ''),
+      '输出 token：' + T.numFmt(u.outputTokens),
+      '调用次数：' + u.calls,
+      '单次成本：' + T.money(c.perCall),
+      '合计成本：' + T.money(c.total),
+      '缓存省下：' + T.money(c.cacheSaved),
+      '单价：输入 $' + p.in + ' / 输出 $' + p.out + ' 每百万 token',
+    ].join('\n');
+  }
+
+  function copyBill(){
+    const txt = billText();
+    const done = () => { el.cmpHint.textContent = '✅ 账单已复制到剪贴板'; setTimeout(()=>{el.cmpHint.textContent='点任意一行可切换为当前模型';},2200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(done).catch(() => fallbackCopy(txt, done));
+    } else fallbackCopy(txt, done);
+  }
+  function fallbackCopy(txt, done){
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); }
+    catch(e){ alert('复制失败，账单如下：\n\n' + txt); }
+    document.body.removeChild(ta);
+  }
+
+  // 事件绑定
+  el.model.onchange = syncPriceFromModel;
+  ['text','priceIn','priceOut','outTokens','calls','cached','budget','sIn','sOut','sCalls','sCache'].forEach(k => {
+    el[k].addEventListener('input', refresh);
+  });
+  $('btnCopy').onclick = copyBill;
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); copyBill(); }
+  });
+  document.querySelectorAll('#samples .chip').forEach(ch => {
+    ch.onclick = () => { el.text.value = SAMPLES[ch.dataset.s] || ''; refresh(); };
+  });
+
+  // 场景按钮
+  T.SCENARIOS.forEach(s => {
+    const b = document.createElement('span');
+    b.className = 'chip';
+    b.textContent = s.name;
+    b.onclick = () => {
+      el.sIn.value = s.inPerCall;
+      el.sOut.value = s.outPerCall;
+      el.sCalls.value = s.callsPerDay;
+      refresh();
+    };
+    el.scenarios.appendChild(b);
+  });
+
+  // 初始
+  el.text.value = SAMPLES.zh;
+  syncPriceFromModel();
+})();
+</script>
+</body>
+</html>
