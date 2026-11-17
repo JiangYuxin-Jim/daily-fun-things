@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-17",
+  "day": 19,
+  "name": "对照台",
+  "slug": "diff-lab",
+  "desc": "两份文本的差异一眼看清：Myers 最短编辑路径、行内字级高亮、导出 git 格式统一 diff",
+  "type": "工具",
+  "stack": "HTML/JS 零依赖"
+}
