@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>粒子宇宙 · particle-cosmos</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #04060f; }
+  canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; touch-action: none; }
+  #hud {
+    position: fixed; left: 16px; top: 14px; z-index: 5;
+    font: 12px/1.7 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: #9fd7ff; text-shadow: 0 0 8px rgba(90,180,255,.6);
+    pointer-events: none; user-select: none; letter-spacing: .04em;
+  }
+  #hud b { color: #eaf6ff; font-weight: 600; }
+  #panel {
+    position: fixed; right: 14px; top: 14px; z-index: 6;
+    width: 224px; padding: 12px 14px 10px;
+    background: rgba(8,16,32,.72); border: 1px solid rgba(110,190,255,.22);
+    border-radius: 12px; backdrop-filter: blur(10px);
+    font: 11px/1.5 ui-monospace, Menlo, Consolas, monospace; color: #a9c8e6;
+    user-select: none;
+  }
+  #panel h1 { margin: 0 0 9px; font-size: 12px; letter-spacing: .18em; color: #dff1ff; font-weight: 600; }
+  #panel .row { display: flex; align-items: center; justify-content: space-between; margin: 6px 0; gap: 8px; }
+  #panel .row span { flex: 0 0 54px; }
+  #panel .row output { flex: 0 0 36px; text-align: right; color: #7fe3c0; }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, #2f6ea8, #6fd3ff); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; border-radius: 50%;
+    background: #eaf6ff; box-shadow: 0 0 8px #6fd3ff; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%;
+    background: #eaf6ff; box-shadow: 0 0 8px #6fd3ff; cursor: pointer; }
+  #panel .row input[type=range] { flex: 1; }
+  .btns { display: flex; gap: 6px; margin-top: 10px; }
+  button {
+    flex: 1; padding: 6px 0; font: 11px ui-monospace, monospace; letter-spacing: .06em;
+    color: #cfe9ff; background: rgba(70,140,220,.16); border: 1px solid rgba(110,190,255,.3);
+    border-radius: 7px; cursor: pointer; transition: .15s;
+  }
+  button:hover { background: rgba(70,140,220,.34); color: #fff; }
+  button.on { background: rgba(80,230,180,.25); border-color: rgba(80,230,180,.6); color: #b9ffe8; }
+  #tip {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 5;
+    font: 11px ui-monospace, monospace; color: rgba(160,205,240,.5); letter-spacing: .16em;
+    pointer-events: none; white-space: nowrap;
+  }
+  #panel.min #body { display: none; }
+  @media (max-width: 620px) {
+    #panel { width: 168px; padding: 9px 10px; right: 8px; top: 8px; }
+    #panel .row span { flex: 0 0 40px; }
+    #hud { font-size: 10px; left: 10px; top: 10px; }
+    #tip { font-size: 9px; letter-spacing: .06em; }
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div>FRAME <b id="hFps">--</b> fps</div>
+  <div>PARTICLES <b id="hCount">0</b></div>
+  <div>ENERGY <b id="hKe">0</b></div>
+  <div>RADIUS <b id="hR">0</b></div>
+</div>
+
+<div id="panel">
+  <h1>PARTICLE COSMOS</h1>
+  <div id="body">
+    <div class="row"><span>引力 G</span><input type="range" id="sG" min="0" max="300" value="90"><output id="oG">0.90</output></div>
+    <div class="row"><span>漩涡</span><input type="range" id="sS" min="-100" max="100" value="26"><output id="oS">26</output></div>
+    <div class="row"><span>拖尾</span><input type="range" id="sT" min="4" max="60" value="22"><output id="oT">22</output></div>
+    <div class="row"><span>数量</span><input type="range" id="sN" min="120" max="900" step="20" value="420"><output id="oN">420</output></div>
+    <div class="btns">
+      <button id="bPause">暂停</button>
+      <button id="bReset">重置</button>
+    </div>
+    <div class="btns">
+      <button id="bPal">配色</button>
+      <button id="bShoot">流星</button>
+    </div>
+  </div>
+</div>
+
+<div id="tip">拖动 / 滑动 搅拌星云 · 空格暂停 · R 重置</div>
+
+<script src="cosmos.js"></script>
+<script>
+(function () {
+  'use strict';
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const C = window.Cosmos;
+
+  const PALETTES = [
+    { name: 'deep-space', bg: 'rgba(4,6,15,',  hue: [195, 325], accent: 285 },
+    { name: 'ember',      bg: 'rgba(12,5,4,',  hue: [10, 55],   accent: 32 },
+    { name: 'bio',        bg: 'rgba(3,12,8,',  hue: [120, 190], accent: 160 },
+    { name: 'ultra',      bg: 'rgba(8,3,14,',  hue: [265, 350], accent: 310 }
+  ];
+
+  const state = {
+    particles: [],
+    G: 0.9, swirl: 26, trail: 22, targetCount: 420,
+    paused: false, pal: 0, seed: Math.floor(Math.random() * 1e9),
+    last: 0, fps: 0, frames: 0, fpsT: 0
+  };
+
+  let W = 0, H = 0, DPR = 1, scale = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * DPR);
+    cv.height = Math.round(H * DPR);
+    scale = Math.min(W, H) * 0.42;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = PALETTES[state.pal].bg + '1)';
+    ctx.fillRect(0, 0, W, H);
+  }
+  window.addEventListener('resize', resize);
+
+  function reset() {
+    state.seed = (state.seed * 1103515245 + 12345) % 2147483647;
+    state.particles = C.createParticles(state.targetCount, state.seed);
+    applyPalette();
+    ctx.fillStyle = PALETTES[state.pal].bg + '1)';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function applyPalette() {
+    const p = PALETTES[state.pal];
+    for (const q of state.particles) {
+      q.hue = p.hue[0] + ((q.hue % 1 + 1) % 1) * (p.hue[1] - p.hue[0]);
+    }
+  }
+
+  // 选中调色板时用粒子原始随机性重铺色相
+  function repaintHues() {
+    const p = PALETTES[state.pal];
+    const rng = C.makeRng(state.seed ^ 0x5f3a);
+    for (const q of state.particles) q.hue = p.hue[0] + rng() * (p.hue[1] - p.hue[0]);
+  }
+
+  // 流星：从边缘射入一颗大质量亮粒子，走直线穿过星云
+  function shootStar() {
+    const ang = Math.random() * Math.PI * 2;
+    const r = 2.6;
+    const tx = Math.cos(ang), ty = Math.sin(ang);
+    state.particles.push({
+      x: tx * r, y: ty * r,
+      vx: -tx * 1.9 + (Math.random() - 0.5) * 0.2,
+      vy: -ty * 1.9 + (Math.random() - 0.5) * 0.2,
+      m: 26, hue: PALETTES[state.pal].accent, star: true
+    });
+    if (state.particles.length > state.targetCount + 140) state.particles.shift();
+  }
+
+  // —— 交互 ——
+  let pointer = null;
+  function toWorld(cx, cy) {
+    return { x: (cx - W / 2) / scale, y: (cy - H / 2) / scale };
+  }
+  function onMove(e) {
+    const rect = cv.getBoundingClientRect();
+    const p = toWorld(e.clientX - rect.left, e.clientY - rect.top);
+    if (pointer) {
+      // 用移动速度决定冲量，快速划过 = 猛搅
+      const dx = p.x - pointer.x, dy = p.y - pointer.y;
+      const sp = Math.min(Math.hypot(dx, dy) * 6, 2.2);
+      C.stir(state.particles, pointer.x, pointer.y, sp, 0.26);
+      // 顺手画一笔光点
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'hsla(' + PALETTES[state.pal].accent + ',100%,80%,.5)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(pointer.px, pointer.py);
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.stroke();
+      ctx.restore();
+    }
+    pointer = { x: p.x, y: p.y, px: e.clientX - rect.left, py: e.clientY - rect.top };
+  }
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); onMove(e); });
+  cv.addEventListener('pointermove', e => { if (e.buttons || e.pointerType !== 'mouse') onMove(e); });
+  cv.addEventListener('pointerup', () => { pointer = null; });
+  cv.addEventListener('pointerleave', () => { pointer = null; });
+
+  // 双击 = 打击：把周围粒子炸开
+  cv.addEventListener('dblclick', e => {
+    const rect = cv.getBoundingClientRect();
+    const p = toWorld(e.clientX - rect.left, e.clientY - rect.top);
+    C.stir(state.particles, p.x, p.y, -3.4, 0.45);
+  });
+
+  // —— UI ——
+  const $ = id => document.getElementById(id);
+  $('sG').oninput = e => { state.G = e.target.value / 100; $('oG').value = state.G.toFixed(2); };
+  $('sS').oninput = e => { state.swirl = +e.target.value; $('oS').value = state.swirl; };
+  $('sT').oninput = e => { state.trail = +e.target.value; $('oT').value = state.trail; };
+  $('sN').oninput = e => {
+    state.targetCount = +e.target.value; $('oN').value = state.targetCount;
+    while (state.particles.length < state.targetCount) {
+      const extra = C.createParticles(40, Date.now() & 0xffff);
+      state.particles.push(...extra);
+    }
+    if (state.particles.length > state.targetCount) state.particles.length = state.targetCount;
+  };
+  $('bPause').onclick = () => { state.paused = !state.paused; $('bPause').textContent = state.paused ? '继续' : '暂停'; $('bPause').classList.toggle('on', state.paused); };
+  $('bReset').onclick = () => reset();
+  $('bPal').onclick = () => { state.pal = (state.pal + 1) % PALETTES.length; repaintHues(); };
+  $('bShoot').onclick = () => { for (let i = 0; i < 3; i++) setTimeout(shootStar, i * 120); };
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); $('bPause').click(); }
+    else if (e.key === 'r' || e.key === 'R') reset();
+  });
+
+  // —— 主循环 ——
+  const SUBSTEPS = 2;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    const dtMs = state.last ? Math.min(t - state.last, 48) : 16;
+    state.last = t;
+    state.frames++; state.fpsT += dtMs;
+    if (state.fpsT > 400) { state.fps = Math.round(1000 * state.frames / state.fpsT); state.frames = 0; state.fpsT = 0; }
+
+    const pal = PALETTES[state.pal];
+
+    // 拖尾淡出
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = pal.bg + (state.trail / 1000).toFixed(4) + ')';
+    ctx.fillRect(0, 0, W, H);
+
+    if (!state.paused) {
+      for (let s = 0; s < SUBSTEPS; s++) {
+        C.step(state.particles, {
+          dt: 0.011, G: state.G * 0.3, soft: 0.035,
+          damping: 0.9992, anchor: 2.4
+        });
+        // 切向漩涡力：让星云转起来（越靠内越快）
+        if (state.swirl !== 0) {
+          const k = state.swirl / 100 * 0.004;
+          for (const p of state.particles) {
+            const r2 = p.x * p.x + p.y * p.y + 0.01;
+            const f = k / r2 * 0.06;
+            const vx = -p.y, vy = p.x;
+            p.vx += vx * f; p.vy += vy * f;
+          }
+        }
+      }
+      // 回收跑太远的粒子
+      for (const p of state.particles) {
+        if (Math.abs(p.x) > 6 || Math.abs(p.y) > 6) {
+          p.x *= 0.02; p.y *= 0.02; p.vx *= 0.05; p.vy *= 0.05;
+        }
+      }
+    }
+
+    // 绘制
+    ctx.globalCompositeOperation = 'lighter';
+    const cx = W / 2, cy = H / 2;
+    for (let i = 0; i < state.particles.length; i++) {
+      const p = state.particles[i];
+      const sx = cx + p.x * scale, sy = cy + p.y * scale;
+      if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) continue;
+      const spd = Math.hypot(p.vx, p.vy);
+      const rad = p.star ? 2.6 : 0.85 + Math.min(spd * 1.5, 1.1);
+      const alpha = p.star ? 0.95 : 0.35 + Math.min(spd * 0.5, 0.5);
+      ctx.fillStyle = 'hsla(' + (p.hue | 0) + ',95%,' + (p.star ? 92 : 68) + '%,' + alpha.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(sx, sy, rad, 0, 6.2832);
+      ctx.fill();
+    }
+
+    $('hFps').textContent = state.fps || '--';
+    $('hCount').textContent = state.particles.length;
+    if (state.frames === 0) {
+      const s = C.stats(state.particles);
+      $('hKe').textContent = s.kinetic.toFixed(0);
+      $('hR').textContent = s.maxR.toFixed(2);
+    }
+  }
+
+  resize();
+  reset();
+  requestAnimationFrame(frame);
+
+  // 桌面端给面板折叠
+  if (window.innerWidth < 620) document.getElementById('panel').classList.add('min');
+})();
+</script>
+</body>
+</html>

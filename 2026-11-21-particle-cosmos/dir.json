@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-21",
+  "day": 22,
+  "name": "粒子宇宙",
+  "slug": "particle-cosmos",
+  "desc": "可搅动的实时引力星云：拖动搅拌、双击炸开，带软化引力数值稳定与四套配色",
+  "type": "创意实验",
+  "stack": "HTML/CSS/Canvas 2D + 原生 JS 零依赖"
+}
