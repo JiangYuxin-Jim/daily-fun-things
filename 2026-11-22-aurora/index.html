@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>极光场 · Aurora Field</title>
+<style>
+  :root {
+    --fg: #eaf4ff;
+    --dim: rgba(234,244,255,.55);
+    --panel: rgba(10,14,28,.55);
+    --line: rgba(150,200,255,.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #03040a;
+    color: var(--fg);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  #sky {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    /* 低分辨率画布由 CSS 平滑放大，得到柔和光晕 */
+    image-rendering: auto;
+    filter: saturate(1.12) contrast(1.02);
+  }
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 15%, transparent 35%, rgba(0,0,0,.55) 100%);
+  }
+  #grain {
+    position: fixed; inset: 0; pointer-events: none; opacity: .05;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.6'/></svg>");
+  }
+
+  .title {
+    position: fixed; left: 28px; top: 22px; z-index: 5;
+    pointer-events: none;
+    text-shadow: 0 2px 18px rgba(0,0,0,.6);
+  }
+  .title h1 {
+    margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .32em;
+  }
+  .title p { margin: 6px 0 0; font-size: 12px; color: var(--dim); letter-spacing: .08em; }
+
+  #panel {
+    position: fixed; right: 18px; bottom: 18px; z-index: 6;
+    width: 268px; padding: 14px 16px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  #panel.hidden { transform: translateY(140%); opacity: 0; pointer-events: none; }
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .row label { font-size: 12px; color: var(--dim); width: 52px; flex: none; }
+  .row output { font-size: 11px; color: var(--dim); width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    flex: 1; height: 3px; border-radius: 3px;
+    background: rgba(150,200,255,.22); outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: #8ff0d0; box-shadow: 0 0 10px #4fe0b0; cursor: pointer;
+    border: none;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 13px; height: 13px; border-radius: 50%; border: none;
+    background: #8ff0d0; box-shadow: 0 0 10px #4fe0b0; cursor: pointer;
+  }
+  .btns { display: flex; gap: 8px; margin-top: 4px; }
+  button {
+    flex: 1; padding: 7px 0; font-size: 12px; cursor: pointer;
+    color: var(--fg); background: rgba(120,220,200,.10);
+    border: 1px solid rgba(120,220,200,.25); border-radius: 9px;
+    font-family: inherit; transition: background .15s, border-color .15s;
+  }
+  button:hover { background: rgba(120,220,200,.2); border-color: rgba(120,220,200,.5); }
+  button:active { transform: translateY(1px); }
+  button.on { background: rgba(120,220,200,.28); border-color: rgba(120,220,200,.75); }
+
+  #presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+  .chip {
+    padding: 4px 9px; font-size: 11px; cursor: pointer; border-radius: 20px;
+    border: 1px solid var(--line); color: var(--dim); background: transparent;
+    transition: all .15s;
+  }
+  .chip:hover { color: var(--fg); border-color: rgba(150,220,255,.5); }
+  .chip.active { color: #041018; background: #8ff0d0; border-color: #8ff0d0; font-weight: 700; }
+
+  .hint {
+    position: fixed; left: 28px; bottom: 22px; z-index: 5;
+    font-size: 11px; color: rgba(234,244,255,.32); letter-spacing: .1em;
+    pointer-events: none;
+  }
+  #fps { font-variant-numeric: tabular-nums; }
+  @media (max-width: 620px) {
+    #panel { left: 12px; right: 12px; width: auto; bottom: 12px; }
+    .hint { display: none; }
+    .title h1 { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div id="vignette"></div>
+<div id="grain"></div>
+
+<div class="title">
+  <h1>极 光 场</h1>
+  <p>程序化生成的会呼吸的北境夜空</p>
+</div>
+
+<div id="panel">
+  <div id="presets"></div>
+  <div class="row"><label>活跃度</label><input id="density" type="range" min="0.2" max="2" step="0.01" value="1"><output id="densityV">1.00</output></div>
+  <div class="row"><label>速度</label><input id="speed" type="range" min="0" max="3" step="0.01" value="1"><output id="speedV">1.00</output></div>
+  <div class="row"><label>暖度</label><input id="warmth" type="range" min="0" max="1" step="0.01" value="0.15"><output id="warmthV">0.15</output></div>
+  <div class="row"><label>清晰度</label><input id="quality" type="range" min="0.25" max="1.5" step="0.05" value="1"><output id="qualityV">1.00</output></div>
+  <div class="btns">
+    <button id="btnPause">暂停</button>
+    <button id="btnNew">换一片天</button>
+    <button id="btnShot">存图</button>
+  </div>
+</div>
+
+<div class="hint">拖动画面调整极光位置 · 点 <span id="fps">–</span> fps</div>
+
+<script src="aurora.js"></script>
+<script>
+(function () {
+  'use strict';
+  const A = window.Aurora;
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  const state = {
+    seed: (Math.random() * 100000) | 0,
+    t: 0,
+    speed: 1,
+    density: 1,
+    warmth: 0.15,
+    quality: 1,
+    paused: false,
+    dragBias: 0,   // 拖动带来的竖向偏移（-1..1）
+  };
+
+  // ---------- 尺寸与降采样 ----------
+  let scale = 1; // 逻辑像素 → 渲染像素比例
+  let rw = 0, rh = 0;
+  let img = null, buf = null;
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // 渲染分辨率按 quality 降采样：2px 一块起步，低质量更省
+    scale = Math.max(2, Math.round(2 * dpr / state.quality));
+    rw = Math.max(2, Math.ceil(window.innerWidth / scale));
+    rh = Math.max(2, Math.ceil(window.innerHeight / scale));
+    canvas.width = rw;
+    canvas.height = rh;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    img = ctx.createImageData(rw, rh);
+    buf = new Float32Array(rw * rh);
+  }
+
+  // ---------- 逐帧场计算（浏览器内联版，避免每次分配像素） ----------
+  const frame = A.renderFrame;
+
+  // 为了让拖动改变形态，我们把 renderFrame 的种子随 dragBias 微调
+  function draw() {
+    const seed = state.seed + Math.round(state.dragBias * 4000);
+    const f = frame(rw, rh, state.t, {
+      seed: seed,
+      warmth: state.warmth,
+      density: state.density,
+    });
+    img.data.set(f.data);
+    ctx.putImageData(img, 0, 0);
+  }
+
+  // ---------- 星空层（固定种子，换天空才变） ----------
+  const starCanvas = document.createElement('canvas');
+  function drawStars() {
+    const w = starCanvas.width = window.innerWidth;
+    const h = starCanvas.height = window.innerHeight;
+    const g = starCanvas.getContext('2d');
+    g.clearRect(0, 0, w, h);
+    const rnd = A.mulberry32(state.seed ^ 0x9e3779b9);
+    const n = Math.round(w * h / 9000);
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * w;
+      const y = rnd() * h * 0.75;
+      const r = rnd() < 0.92 ? rnd() * 0.9 + 0.3 : rnd() * 1.6 + 1;
+      const a = 0.15 + rnd() * 0.7 * (1 - y / h);
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = 'rgba(' + (200 + rnd() * 55 | 0) + ',' + (220 + rnd() * 35 | 0) + ',255,' + a.toFixed(3) + ')';
+      g.fill();
+    }
+  }
+
+  // 星光的闪烁：单独一层，用 CSS 动画太僵，这里逐帧画少量
+  let starBeat = 0;
+
+  // ---------- 主循环 ----------
+  let last = performance.now();
+  let fpsAcc = 0, fpsN = 0, fpsTimer = 0;
+  const fpsEl = document.getElementById('fps');
+
+  function loop(now) {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    if (!state.paused) state.t += dt * state.speed;
+
+    draw();
+    // 叠加星星（带轻微闪烁）
+    const beat = 0.85 + 0.15 * Math.sin(now / 900);
+    ctx.globalAlpha = beat;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(starCanvas, 0, 0, rw * scale, rh * scale, 0, 0, rw, rh);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+
+    // fps 统计
+    fpsAcc += 1 / Math.max(dt, 1e-4); fpsN++; fpsTimer += dt;
+    if (fpsTimer > 0.6) {
+      fpsEl.textContent = Math.round(fpsAcc / fpsN);
+      fpsAcc = 0; fpsN = 0; fpsTimer = 0;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 控件 ----------
+  const ctrls = {
+    density: document.getElementById('density'),
+    speed: document.getElementById('speed'),
+    warmth: document.getElementById('warmth'),
+    quality: document.getElementById('quality'),
+  };
+  Object.keys(ctrls).forEach(function (k) {
+    const el = ctrls[k];
+    const out = document.getElementById(k + 'V');
+    el.addEventListener('input', function () {
+      state[k] = parseFloat(el.value);
+      out.textContent = state[k].toFixed(2);
+      if (k === 'quality') { resize(); }
+      markPresetDirty();
+    });
+  });
+
+  const PRESETS = [
+    { name: '经典极光', density: 1.0, speed: 1.0, warmth: 0.12, quality: 1.0 },
+    { name: '暴风', density: 1.7, speed: 2.4, warmth: 0.35, quality: 0.8 },
+    { name: '静谧', density: 0.55, speed: 0.35, warmth: 0.05, quality: 1.5 },
+    { name: '紫罗兰', density: 1.1, speed: 1.2, warmth: 0.85, quality: 1.0 },
+    { name: '深夜低光', density: 0.4, speed: 0.6, warmth: 0.2, quality: 0.9 },
+  ];
+  const presetBox = document.getElementById('presets');
+  let activePreset = 0;
+  PRESETS.forEach(function (p, i) {
+    const b = document.createElement('button');
+    b.className = 'chip' + (i === 0 ? ' active' : '');
+    b.textContent = p.name;
+    b.addEventListener('click', function () {
+      activePreset = i;
+      applyPreset(p);
+      setActiveChip(i);
+    });
+    presetBox.appendChild(b);
+  });
+  function setActiveChip(i) {
+    Array.prototype.forEach.call(presetBox.children, function (el, j) {
+      el.classList.toggle('active', j === i);
+    });
+  }
+  function markPresetDirty() { activePreset = -1; setActiveChip(-1); }
+  function applyPreset(p) {
+    ['density', 'speed', 'warmth', 'quality'].forEach(function (k) {
+      state[k] = p[k];
+      ctrls[k].value = p[k];
+      document.getElementById(k + 'V').textContent = p[k].toFixed(2);
+    });
+    resize();
+  }
+
+  const btnPause = document.getElementById('btnPause');
+  btnPause.addEventListener('click', function () {
+    state.paused = !state.paused;
+    btnPause.textContent = state.paused ? '继续' : '暂停';
+    btnPause.classList.toggle('on', state.paused);
+  });
+
+  document.getElementById('btnNew').addEventListener('click', function () {
+    state.seed = (Math.random() * 100000) | 0;
+    state.dragBias = 0;
+    drawStars();
+  });
+
+  document.getElementById('btnShot').addEventListener('click', function () {
+    state.paused = true;
+    btnPause.textContent = '继续';
+    btnPause.classList.add('on');
+    // 高清重绘一帧再导出
+    const W = Math.min(2400, window.innerWidth * 2);
+    const H = Math.round(W * window.innerHeight / window.innerWidth);
+    const hi = A.renderFrame(W, H, state.t, {
+      seed: state.seed + Math.round(state.dragBias * 4000),
+      warmth: state.warmth, density: state.density,
+    });
+    const c2 = document.createElement('canvas');
+    c2.width = W; c2.height = H;
+    c2.getContext('2d').putImageData(new ImageData(hi.data, W, H), 0, 0);
+    const a = document.createElement('a');
+    a.download = 'aurora-' + state.seed + '.png';
+    a.href = c2.toDataURL('image/png');
+    a.click();
+  });
+
+  // ---------- 拖动：竖向移动极光带 ----------
+  let dragging = false, startY = 0, baseBias = 0;
+  canvas.addEventListener('pointerdown', function (e) {
+    dragging = true; startY = e.clientY; baseBias = state.dragBias;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    state.dragBias = Math.max(-0.5, Math.min(0.5, baseBias + (e.clientY - startY) / window.innerHeight));
+  });
+  canvas.addEventListener('pointerup', function () { dragging = false; });
+  canvas.addEventListener('pointercancel', function () { dragging = false; });
+
+  // 空格暂停
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'Space') { e.preventDefault(); btnPause.click(); }
+  });
+
+  window.addEventListener('resize', function () {
+    resize(); drawStars();
+  });
+
+  resize();
+  drawStars();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
