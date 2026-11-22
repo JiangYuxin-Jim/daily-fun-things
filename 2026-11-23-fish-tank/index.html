@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>桌面虚拟鱼缸 · desktop fish tank</title>
+<style>
+  :root{
+    --panel:rgba(12,26,38,.72);
+    --line:rgba(140,210,235,.22);
+    --txt:#e6f4fb;
+    --dim:#8fb3c6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#04121c;color:var(--txt);
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;}
+  canvas{display:block;width:100%;height:100%}
+  #hud{position:fixed;left:14px;top:14px;padding:12px 14px;border-radius:14px;
+    background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);
+    font-size:12px;line-height:1.7;min-width:186px;user-select:none;z-index:5;
+    transition:opacity .4s,transform .4s}
+  #hud.hide{opacity:0;transform:translateX(-14px);pointer-events:none}
+  #hud h1{margin:0 0 6px;font-size:13px;letter-spacing:.16em;font-weight:600;color:#bfe9ff}
+  .row{display:flex;justify-content:space-between;gap:12px;color:var(--dim)}
+  .row b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  #bar{height:5px;border-radius:3px;background:rgba(255,255,255,.1);margin-top:8px;overflow:hidden}
+  #bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#54e0b4,#7fd7ff);transition:width .5s}
+  #tip{color:#6f93a6;margin-top:8px;font-size:11px;line-height:1.6}
+  #btns{position:fixed;right:14px;top:14px;display:flex;gap:8px;z-index:5;flex-wrap:wrap;justify-content:flex-end}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--txt);
+    padding:8px 12px;border-radius:11px;font-size:12px;backdrop-filter:blur(10px);
+    transition:background .2s,transform .1s}
+  button:hover{background:rgba(30,70,95,.85)}
+  button:active{transform:scale(.95)}
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);
+    padding:9px 18px;border-radius:999px;background:rgba(8,24,34,.9);border:1px solid var(--line);
+    font-size:12.5px;opacity:0;transition:.35s;pointer-events:none;z-index:9}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <h1>🐟 FISH TANK v1</h1>
+  <div class="row"><span>鱼群</span><b id="sFish">0</b></div>
+  <div class="row"><span>水温</span><b id="sTemp">24.0°C</b></div>
+  <div class="row"><span>水质</span><b id="sQual">清洁</b></div>
+  <div id="bar"><i id="sBar"></i></div>
+  <div id="tip">点水面投食 · 点鱼摸一下<br>按下 F 撒一把鱼食</div>
+</div>
+
+<div id="btns">
+  <button id="bFeed">🌾 投食</button>
+  <button id="bAdd">＋ 放鱼</button>
+  <button id="bPause">⏸ 暂停</button>
+  <button id="bHud">隐藏面板</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="tank.js"></script>
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const tank = new Tank(canvas);
+
+  const $ = id => document.getElementById(id);
+
+  function toast(msg){
+    const t = $('toast');
+    t.textContent = msg; t.classList.add('on');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>t.classList.remove('on'), 1800);
+  }
+
+  function syncHud(){
+    const h = tank.hud();
+    $('sFish').textContent = h.fish;
+    $('sTemp').textContent = h.temp.toFixed(1) + '°C';
+    $('sQual').textContent = h.quality;
+    $('sBar').style.width = Math.round(h.clarity * 100) + '%';
+  }
+  syncHud();
+  setInterval(syncHud, 500);
+
+  // 点击：水面 -> 投食；鱼身上 -> 摸鱼
+  canvas.addEventListener('pointerdown', ev => {
+    const r = canvas.getBoundingClientRect();
+    const x = ev.clientX - r.left, y = ev.clientY - r.top;
+    const fish = tank.fishAt(x, y);
+    if (fish) {
+      tank.pet(fish);
+      toast('👋 摸了摸 ' + fish.name);
+    } else {
+      tank.feedAt(x, y);
+    }
+  });
+
+  $('bFeed').onclick = () => tank.feedRandom(14);
+  $('bAdd').onclick = () => {
+    const f = tank.addFish();
+    toast(f ? '🐠 新来的：' + f.name : '🐟 鱼缸有点挤了');
+  };
+  $('bPause').onclick = e => {
+    const p = tank.togglePause();
+    e.target.textContent = p ? '▶ 继续' : '⏸ 暂停';
+  };
+  $('bHud').onclick = e => {
+    const hud = $('hud');
+    hud.classList.toggle('hide');
+    e.target.textContent = hud.classList.contains('hide') ? '显示面板' : '隐藏面板';
+  };
+
+  window.addEventListener('keydown', ev => {
+    if (ev.key === 'f' || ev.key === 'F') { tank.feedRandom(18); }
+    if (ev.key === ' ') { ev.preventDefault(); $('bPause').click(); }
+  });
+
+  tank.start();
+})();
+</script>
+</body>
+</html>
