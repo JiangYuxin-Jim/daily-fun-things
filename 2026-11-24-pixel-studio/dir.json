@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-24",
+  "day": 25,
+  "name": "像素工坊",
+  "slug": "pixel-studio",
+  "desc": "能实时蹦跳预览的像素画编辑器，画笔/直线/方框/填充/镜像对称，一键导出 8 倍清晰 PNG",
+  "type": "创意工具",
+  "stack": "HTML/CSS/Canvas 2D + 原生 JS 零依赖（算法层可 Node 自测）"
+}
