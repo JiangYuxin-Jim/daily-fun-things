@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-25",
+  "day": 26,
+  "name": "人生刻度",
+  "slug": "life-countdown",
+  "desc": "把人生摊成一张周格子纸：已活多少天、还剩多少夏天和满月，数据全在本地算",
+  "type": "创意工具",
+  "stack": "HTML/CSS + 原生 JS 零依赖（算法层 life.js 可 Node 自测）"
+}
