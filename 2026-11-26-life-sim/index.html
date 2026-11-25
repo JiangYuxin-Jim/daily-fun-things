@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>一命人生 · 随机人生模拟器</title>
+<style>
+  :root {
+    --bg: #0e1014;
+    --panel: #171a21;
+    --line: #262b35;
+    --ink: #e8eaf0;
+    --dim: #8a92a6;
+    --gold: #e3b96b;
+    --green: #5fbf8f;
+    --red: #d96a6a;
+    --blue: #6fa8dc;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 50% -10%, #1d2230, var(--bg));
+    color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 28px 16px 60px;
+  }
+  .app { width: 100%; max-width: 760px; }
+  header { text-align: center; margin-bottom: 22px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: 2px; font-weight: 600; }
+  h1 .accent { color: var(--gold); }
+  .sub { color: var(--dim); font-size: 13px; letter-spacing: .5px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .identity { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+  .chip {
+    font-size: 12.5px; padding: 5px 11px; border-radius: 999px;
+    background: #212631; color: var(--ink); border: 1px solid var(--line);
+  }
+  .chip.gold { border-color: #4a3d22; color: var(--gold); background: #241f16; }
+
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 16px; }
+  .stat { font-size: 12px; color: var(--dim); }
+  .bar { height: 6px; background: #222834; border-radius: 4px; margin-top: 5px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 4px; transition: width .4s ease; }
+  .b-wealth > i { background: var(--gold); }
+  .b-intel > i { background: var(--blue); }
+  .b-charm > i { background: #c68ad9; }
+  .b-health > i { background: var(--green); }
+  .b-happy > i { background: #e58f5f; }
+
+  .agebox { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .age { font-size: 40px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .age small { font-size: 15px; color: var(--dim); font-weight: 400; }
+  .jobtag { margin-left: auto; font-size: 13px; color: var(--dim); }
+
+  .log { max-height: 340px; overflow-y: auto; padding-right: 6px; scroll-behavior: smooth; }
+  .log::-webkit-scrollbar { width: 6px; }
+  .log::-webkit-scrollbar-thumb { background: #333a47; border-radius: 3px; }
+  .entry { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px dashed #1f242d; font-size: 14px; line-height: 1.6; animation: fade .35s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .entry .yr { color: var(--dim); font-size: 12px; min-width: 52px; padding-top: 3px; font-variant-numeric: tabular-nums; }
+  .entry.birth .txt { color: var(--gold); }
+  .entry.death .txt { color: var(--red); }
+  .empty { color: var(--dim); font-size: 14px; text-align: center; padding: 30px 0; }
+
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  button {
+    font: inherit; cursor: pointer; border: 1px solid var(--line);
+    background: #20242e; color: var(--ink);
+    padding: 10px 18px; border-radius: 10px; transition: .18s;
+  }
+  button:hover:not(:disabled) { border-color: #3d4655; transform: translateY(-1px); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  button.primary { background: var(--gold); color: #1a1408; border-color: var(--gold); font-weight: 600; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+
+  .grave { text-align: center; padding: 26px 16px 10px; }
+  .grave .rip { font-size: 13px; letter-spacing: 6px; color: var(--dim); }
+  .grave .ttl { font-size: 24px; color: var(--gold); margin: 10px 0 4px; font-weight: 600; }
+  .grave .epi { color: var(--ink); font-size: 15px; margin-bottom: 10px; }
+  .grave .score { color: var(--dim); font-size: 13px; }
+  .grave .score b { color: var(--gold); font-size: 17px; }
+  .lifeline { display: flex; gap: 3px; justify-content: center; margin-top: 14px; flex-wrap: nowrap; overflow: hidden; }
+  .lifeline span { width: 5px; height: 12px; border-radius: 1px; background: #2c333f; }
+  .lifeline span.on { background: var(--gold); }
+  .hint { text-align: center; color: var(--dim); font-size: 12px; margin-top: 14px; }
+  @media (max-width: 560px) {
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .age { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>一<span class="accent">命</span>人生</h1>
+    <div class="sub">每一次投胎都不同 · 每年只能按一次「过一年」· 直到终点</div>
+  </header>
+
+  <div class="panel" id="identityPanel">
+    <div class="identity" id="identity"><span class="chip">等待投胎…</span></div>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="panel">
+    <div class="agebox">
+      <div class="age"><span id="ageNum">0</span><small> 岁</small></div>
+      <div class="jobtag" id="jobTag"></div>
+    </div>
+    <div class="log" id="log"><div class="empty">点下面的按钮开始这一生</div></div>
+    <div class="actions">
+      <button class="primary" id="btnStart">投胎</button>
+      <button id="btnYear" disabled>过一年 →</button>
+      <button id="btnTen" disabled>快进十年 ⏩</button>
+      <button id="btnLife" disabled>一生速览</button>
+    </div>
+  </div>
+
+  <div id="graveWrap"></div>
+  <div class="hint">同一个种子 = 同一条命。想重来就再投一次胎。</div>
+</div>
+
+<script src="life-sim.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const STAT_KEYS = [
+    ['wealth', '财富', 'b-wealth'],
+    ['intel', '智力', 'b-intel'],
+    ['charm', '魅力', 'b-charm'],
+    ['health', '健康', 'b-health'],
+    ['happiness', '幸福', 'b-happy'],
+  ];
+
+  let life = null;
+  let finished = false;
+
+  function renderStats() {
+    $('stats').innerHTML = STAT_KEYS.map(([k, label, cls]) => `
+      <div class="stat">${label} <span style="float:right;color:#c3c9d6">${Math.round(life[k])}</span>
+        <div class="bar ${cls}"><i style="width:${life[k]}%"></i></div>
+      </div>`).join('');
+  }
+
+  function renderIdentity() {
+    $('identity').innerHTML = `
+      <span class="chip">${life.origin.label}</span>
+      <span class="chip gold">天赋 · ${life.talent.label}</span>
+      <span class="chip">种子 #${life.seed}</span>`;
+  }
+
+  function renderLog() {
+    const box = $('log');
+    box.innerHTML = life.log.map(e => `
+      <div class="entry ${e.kind || ''}">
+        <div class="yr">${e.age} 岁</div>
+        <div class="txt">${escapeHtml(e.text)}</div>
+      </div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function refresh() {
+    $('ageNum').textContent = life.age;
+    $('jobTag').textContent = '职业：' + life.job;
+    renderStats();
+    renderLog();
+  }
+
+  function renderGrave() {
+    const s = life.summary || LifeSim.summarize(life);
+    const cells = Math.min(life.age, 100);
+    let line = '';
+    for (let i = 0; i < 100; i++) line += `<span class="${i < cells ? 'on' : ''}"></span>`;
+    $('graveWrap').innerHTML = `
+      <div class="panel grave">
+        <div class="rip">R . I . P</div>
+        <div class="ttl">${s.title}</div>
+        <div class="epi">「${escapeHtml(s.epitaph)}」</div>
+        <div class="score">人生评分 <b>${s.score}</b> / 100　·　享年 ${life.age} 岁</div>
+        <div class="lifeline">${line}</div>
+      </div>`;
+  }
+
+  function setButtons() {
+    const alive = life && life.alive;
+    $('btnYear').disabled = !alive;
+    $('btnTen').disabled = !alive;
+    $('btnLife').disabled = !life || finished;
+    $('btnStart').textContent = life ? '重新投胎' : '投胎';
+  }
+
+  function afterStep() {
+    refresh();
+    if (!life.alive) {
+      finished = true;
+      life.summary = LifeSim.summarize(life);
+      renderGrave();
+    }
+    setButtons();
+  }
+
+  $('btnStart').onclick = () => {
+    const seed = Math.floor(Math.random() * 1e9);
+    life = LifeSim.createLife(seed);
+    finished = false;
+    $('graveWrap').innerHTML = '';
+    renderIdentity();
+    refresh();
+    afterStep();  // 出生即显示
+  };
+
+  $('btnYear').onclick = () => {
+    if (!life || !life.alive) return;
+    LifeSim.stepYear(life);
+    afterStep();
+  };
+
+  $('btnTen').onclick = () => {
+    if (!life || !life.alive) return;
+    for (let i = 0; i < 10 && life.alive; i++) LifeSim.stepYear(life);
+    afterStep();
+  };
+
+  $('btnLife').onclick = () => {
+    if (!life || finished) return;
+    while (life.alive && life.age < 120) LifeSim.stepYear(life);
+    finished = true;
+    afterStep();
+  };
+
+  // 键盘空格 = 过一年
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && !$('btnYear').disabled) {
+      e.preventDefault();
+      $('btnYear').click();
+    }
+  });
+
+  renderStats();
+})();
+</script>
+</body>
+</html>
