@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今天吃什么 · 决策转盘</title>
+<style>
+  :root {
+    --bg: #12100f;
+    --panel: #1d1a18;
+    --line: #332d29;
+    --text: #f2e9e1;
+    --dim: #9c8f85;
+    --accent: #ff8a3d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 50% -10%, #2a1f18 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 28px 18px 48px;
+  }
+  .wrap { width: 100%; max-width: 980px; }
+  header { text-align: center; margin-bottom: 18px; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: 2px; font-weight: 600; }
+  h1 span { color: var(--accent); }
+  .sub { margin-top: 6px; color: var(--dim); font-size: 13px; }
+
+  .main { display: grid; grid-template-columns: 1fr 320px; gap: 26px; align-items: start; }
+  @media (max-width: 780px) { .main { grid-template-columns: 1fr; } }
+
+  .stage { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .wheel-box { position: relative; width: min(460px, 86vw); aspect-ratio: 1; }
+  canvas { width: 100%; height: 100%; display: block; transition: transform 0s; }
+  .pointer {
+    position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 15px solid transparent; border-right: 15px solid transparent;
+    border-top: 30px solid var(--accent);
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,.6));
+    z-index: 3;
+  }
+  .hub {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 22%; aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #3a322c, #16130f);
+    border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: var(--dim); letter-spacing: 1px;
+    pointer-events: none;
+  }
+  .controls { margin-top: 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+    background: #241f1b; color: var(--text); padding: 10px 16px; transition: .16s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .38; cursor: not-allowed; }
+  .spin-btn {
+    background: linear-gradient(135deg, #ff8a3d, #e5533d);
+    border: none; color: #1a1310; font-weight: 700; padding: 14px 34px;
+    font-size: 17px; letter-spacing: 2px; box-shadow: 0 8px 24px rgba(229,83,61,.28);
+  }
+  .spin-btn:hover:not(:disabled) { color: #1a1310; filter: brightness(1.08); }
+
+  .result {
+    margin-top: 18px; min-height: 60px; text-align: center;
+    font-size: 15px; color: var(--dim); line-height: 1.7;
+  }
+  .result b { font-size: 22px; color: var(--accent); display: block; margin-bottom: 2px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 14px; color: var(--dim); font-weight: 500; letter-spacing: 1px; }
+  .add-row { display: flex; gap: 8px; }
+  .add-row input {
+    flex: 1; min-width: 0; font: inherit; font-size: 14px; color: var(--text);
+    background: #141210; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
+  }
+  .add-row input:focus { outline: none; border-color: var(--accent); }
+  .add-row button { padding: 9px 14px; }
+  .hint { font-size: 12px; color: var(--dim); margin-top: 8px; min-height: 16px; }
+  .hint.err { color: #ff6b6b; }
+
+  ul.list { list-style: none; margin: 14px 0 0; padding: 0; max-height: 300px; overflow-y: auto; }
+  ul.list li {
+    display: flex; align-items: center; gap: 8px; padding: 8px 4px;
+    border-bottom: 1px solid #262220; font-size: 14px;
+  }
+  ul.list li:last-child { border-bottom: none; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wsel {
+    font: inherit; font-size: 12px; color: var(--text); background: #141210;
+    border: 1px solid var(--line); border-radius: 6px; padding: 3px 4px;
+  }
+  .del {
+    border: none; background: none; color: #6b5f57; font-size: 16px; padding: 0 4px;
+    cursor: pointer; line-height: 1;
+  }
+  .del:hover { color: #ff6b6b; }
+  .panel-foot { display: flex; gap: 8px; margin-top: 14px; }
+  .panel-foot button { flex: 1; font-size: 13px; padding: 8px; }
+  .empty { color: var(--dim); font-size: 13px; padding: 12px 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>今天<span>吃什么</span></h1>
+    <div class="sub">别再纠结了，交给转盘 · 权重越高越容易被抽到</div>
+  </header>
+
+  <div class="main">
+    <div class="stage">
+      <div class="wheel-box">
+        <div class="pointer"></div>
+        <canvas id="wheel" width="920" height="920"></canvas>
+        <div class="hub" id="hub">转</div>
+      </div>
+      <div class="controls">
+        <button class="spin-btn" id="spin">转 一 下</button>
+        <button id="reset" title="恢复默认 8 项">恢复默认</button>
+      </div>
+      <div class="result" id="result">候选 <span id="count">0</span> 项 —— 准备好了就转。</div>
+    </div>
+
+    <div class="panel">
+      <h2>候选菜单</h2>
+      <div class="add-row">
+        <input id="newName" placeholder="加点想吃的…" maxlength="24" autocomplete="off">
+        <button id="addBtn">加入</button>
+      </div>
+      <div class="hint" id="hint"></div>
+      <ul class="list" id="list"></ul>
+      <div class="panel-foot">
+        <button id="lucky" title="把权重随机打乱一遍">随机权重</button>
+        <button id="clear">清空</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="wheel.js"></script>
+<script>
+(function () {
+  'use strict';
+  var W = window.FoodWheel;
+  var COLORS = ['#ff8a3d','#e5533d','#f2b544','#7ec46a','#4aa8a0','#5b8def','#a06cd5','#d96ba1',
+                '#e8875b','#8fb36a','#3fa9a2','#7b7fe0','#b46ad5','#cd6f8f','#d9a44b','#66b98b',
+                '#4f92c9','#9a7bd1','#c46a7a','#d08a4a','#5fae9e','#7a8fd6','#ae6ac0','#c07f6a'];
+  var STORE = 'food-wheel-v1';
+
+  var canvas = document.getElementById('wheel');
+  var ctx = canvas.getContext('2d');
+  var els = {
+    spin: document.getElementById('spin'),
+    reset: document.getElementById('reset'),
+    result: document.getElementById('result'),
+    count: document.getElementById('count'),
+    list: document.getElementById('list'),
+    newName: document.getElementById('newName'),
+    addBtn: document.getElementById('addBtn'),
+    hint: document.getElementById('hint'),
+    lucky: document.getElementById('lucky'),
+    clear: document.getElementById('clear'),
+    hub: document.getElementById('hub'),
+  };
+
+  var items = load();
+  var angle = 0;          // 当前绝对角度（deg）
+  var spinning = false;
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length) {
+          var out = [];
+          arr.forEach(function (it) { out = W.addItem(out, it.name, it).items; });
+          return out;
+        }
+      }
+    } catch (e) { /* 脏数据就用默认 */ }
+    return W.DEFAULT_ITEMS.map(function (it) { return { name: it.name, weight: it.weight, tag: it.tag }; });
+  }
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify(items)); } catch (e) {}
+  }
+
+  // ---------- 绘制 ----------
+  function draw() {
+    var size = canvas.width;
+    var cx = size / 2, cy = size / 2, R = size / 2 - 12;
+    ctx.clearRect(0, 0, size, size);
+
+    // 外圈环
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 7, 0, Math.PI * 2);
+    ctx.strokeStyle = '#3a322c';
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    if (!items.length) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fillStyle = '#1d1a18';
+      ctx.fill();
+      drawCenterText(cx, cy, '空', '#6b5f57', 64, true);
+      return;
+    }
+
+    var n = items.length;
+    var each = Math.PI * 2 / n;
+    // 指针在正上方 = 角度 -90°，扇区 0 从 -90° 开始
+    var base = -Math.PI / 2;
+    for (var i = 0; i < n; i++) {
+      var a0 = base + i * each, a1 = a0 + each;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a0, a1);
+      ctx.closePath();
+      var c = COLORS[i % COLORS.length];
+      var grad = ctx.createRadialGradient(cx, cy, R * 0.15, cx, cy, R);
+      grad.addColorStop(0, shade(c, -0.22));
+      grad.addColorStop(1, shade(c, 0.06));
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(18,16,15,.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 标签
+      var mid = (a0 + a1) / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(mid);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      var txt = items[i].name;
+      var fs = Math.max(15, Math.min(30, R * 0.115, (R * 0.55) / Math.max(2.2, txt.length) * 2.6));
+      ctx.font = '600 ' + fs + 'px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = 'rgba(20,16,13,.88)';
+      var maxW = R * 0.68;
+      var shown = txt;
+      while (ctx.measureText(shown).width > maxW && shown.length > 1) shown = shown.slice(0, -1);
+      if (shown !== txt) shown = shown.slice(0, -1) + '…';
+      ctx.fillText(shown, R * 0.9, 0);
+      // 权重角标（>1 才标）
+      if (items[i].weight > 1) {
+        ctx.font = '500 ' + (fs * 0.62) + 'px -apple-system, sans-serif';
+        ctx.fillStyle = 'rgba(20,16,13,.5)';
+        ctx.fillText('×' + items[i].weight, R * 0.9 - ctx.measureText(shown).width - fs * 0.9, 0);
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawCenterText(cx, cy, t, color, size, bold) {
+    ctx.fillStyle = color;
+    ctx.font = (bold ? '700 ' : '400 ') + size + 'px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t, cx, cy);
+  }
+
+  function shade(hex, amt) {
+    var m = /^#([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return hex;
+    var v = parseInt(m[1], 16);
+    var r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
+    function f(x) {
+      var y = amt < 0 ? x * (1 + amt) : x + (255 - x) * amt;
+      return Math.max(0, Math.min(255, Math.round(y)));
+    }
+    return 'rgb(' + f(r) + ',' + f(g) + ',' + f(b) + ')';
+  }
+
+  // ---------- 渲染列表与状态 ----------
+  function render() {
+    els.count.textContent = items.length;
+    els.list.innerHTML = '';
+    if (!items.length) {
+      var d = document.createElement('div');
+      d.className = 'empty';
+      d.textContent = '菜单空了，加点想吃的吧。';
+      els.list.appendChild(d);
+    }
+    items.forEach(function (it, i) {
+      var li = document.createElement('li');
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = COLORS[i % COLORS.length];
+      var nm = document.createElement('span');
+      nm.className = 'nm';
+      nm.textContent = it.name;
+      nm.title = it.name + (it.tag ? ' · ' + it.tag : '');
+      var sel = document.createElement('select');
+      sel.className = 'wsel';
+      sel.title = '权重';
+      [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (w) {
+        var o = document.createElement('option');
+        o.value = w;
+        o.textContent = w + '×';
+        if (w === it.weight) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        items = W.setWeight(items, i, sel.value);
+        save(); draw(); render();
+      });
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '×';
+      del.title = '删除 ' + it.name;
+      del.addEventListener('click', function () {
+        if (spinning) return;
+        items = W.removeItem(items, i);
+        save(); draw(); render();
+      });
+      li.appendChild(dot);
+      li.appendChild(nm);
+      li.appendChild(sel);
+      li.appendChild(del);
+      els.list.appendChild(li);
+    });
+    els.spin.disabled = spinning || !W.isReady(items);
+    els.hub.textContent = W.isReady(items) ? '转' : '…';
+  }
+
+  function say(html) { els.result.innerHTML = html; }
+
+  // ---------- 抽取 ----------
+  function spin() {
+    if (spinning || !W.isReady(items)) return;
+    spinning = true;
+    els.spin.disabled = true;
+    els.hub.textContent = '…';
+    say('正在替你决定…');
+
+    var idx = W.pickIndex(items);
+    var target = W.spinTo(items, idx, angle, Math.random);
+    var from = angle;
+    var dur = 4200 + Math.random() * 1200;
+    var start = performance.now();
+
+    function frame(now) {
+      var t = Math.min(1, (now - start) / dur);
+      // easeOutQuart：先快后慢，末尾有轻微「咔」的顿感
+      var e = 1 - Math.pow(1 - t, 4);
+      angle = from + (target - from) * e;
+      canvas.style.transform = 'rotate(' + angle + 'deg)';
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        angle = target % 360 + Math.floor(target / 360) * 360;
+        canvas.style.transform = 'rotate(' + angle + 'deg)';
+        finish(idx);
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finish(idx) {
+    spinning = false;
+    var it = items[idx];
+    var quip = W.quipFor(it);
+    say('<b>' + esc(it.name) + '</b>' + esc(quip));
+    els.hub.textContent = '吃';
+    els.spin.textContent = '再 转 一 次';
+    render();
+    els.spin.disabled = !W.isReady(items);
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        var ac = new AC();
+        var o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(660, ac.currentTime);
+        o.frequency.exponentialRampToValueAtTime(1320, ac.currentTime + 0.12);
+        g.gain.setValueAtTime(0.0001, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.09, ac.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.42);
+        o.connect(g); g.connect(ac.destination);
+        o.start(); o.stop(ac.currentTime + 0.45);
+        setTimeout(function () { try { ac.close(); } catch (e) {} }, 900);
+      }
+    } catch (e) { /* 音效失败不影响结果 */ }
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- 交互 ----------
+  function hint(msg, isErr) {
+    els.hint.textContent = msg;
+    els.hint.className = 'hint' + (isErr ? ' err' : '');
+  }
+
+  function addFromInput() {
+    var val = els.newName.value;
+    var r = W.addItem(items, val);
+    if (!r.ok) {
+      hint({
+        'empty': '先写个名字吧',
+        'duplicate': '这个已经在转盘上了',
+        'too-long': '名字太长了，24 字以内',
+        'full': '最多 ' + W.MAX_ITEMS + ' 项，先删几个',
+      }[r.reason] || '加不进去', true);
+      return;
+    }
+    items = r.items;
+    els.newName.value = '';
+    hint('已加入「' + W.normalizeName(val) + '」');
+    save(); draw(); render();
+  }
+
+  els.addBtn.addEventListener('click', addFromInput);
+  els.newName.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') addFromInput();
+  });
+  els.spin.addEventListener('click', spin);
+  els.reset.addEventListener('click', function () {
+    if (spinning) return;
+    items = W.DEFAULT_ITEMS.map(function (it) { return { name: it.name, weight: it.weight, tag: it.tag }; });
+    save(); draw(); render();
+    say('已恢复默认菜单。');
+  });
+  els.clear.addEventListener('click', function () {
+    if (spinning) return;
+    items = [];
+    save(); draw(); render();
+    say('菜单清空了，从头开始想。');
+  });
+  els.lucky.addEventListener('click', function () {
+    if (spinning) return;
+    items = items.map(function (it) {
+      return { name: it.name, weight: 1 + Math.floor(Math.random() * 5), tag: it.tag };
+    });
+    save(); draw(); render();
+    hint('权重已随机打乱');
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'Space' && document.activeElement !== els.newName) {
+      e.preventDefault();
+      spin();
+    }
+  });
+
+  // 首次进入把 canvas 归零并绘制
+  canvas.style.transform = 'rotate(0deg)';
+  draw();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-27",
+  "day": 28,
+  "name": "今天吃什么",
+  "slug": "food-wheel",
+  "desc": "加权决策转盘：候选菜单随手加，每道菜可调权重，转一下让转盘拍板并附一句口味点评",
+  "type": "实用工具",
+  "stack": "HTML/CSS + Canvas + 原生 JS 零依赖（引擎 wheel.js 可 Node 自测）"
+}
