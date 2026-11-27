@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>键盘音效实验室 · keyboard-sound</title>
+<style>
+  :root{
+    --bg:#101014; --panel:#191920; --line:#2b2b36; --fg:#e9e9f2; --dim:#8b8b9e;
+    --accent:#7ce0c3;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;font-family:-apple-system,"Segoe UI",system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#1b2330,#0b0b0e 70%);
+    color:var(--fg);display:flex;flex-direction:column;align-items:center;padding:28px 16px 60px;
+  }
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:.06em}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+  .presets{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:760px;margin-bottom:18px}
+  .preset{
+    background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:10px;
+    padding:9px 14px;font-size:13px;cursor:pointer;transition:.16s;font-family:inherit;
+  }
+  .preset:hover{border-color:#4a4a5e;transform:translateY(-1px)}
+  .preset.on{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset,0 0 18px -6px var(--accent)}
+  .preset small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+
+  .stage{position:relative;width:min(680px,100%);height:150px;border-radius:16px;overflow:hidden;
+    background:linear-gradient(180deg,#15151c,#0e0e13);border:1px solid var(--line);margin-bottom:16px}
+  canvas{width:100%;height:100%;display:block}
+  .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#5b5b6e;font-size:14px;pointer-events:none;letter-spacing:.08em}
+  .hint.gone{opacity:0;transition:.4s}
+
+  .keys{width:min(680px,100%);display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-bottom:18px}
+  .key{background:#1c1c24;border:1px solid #2f2f3c;border-bottom-width:3px;border-radius:7px;height:44px;
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:#9a9aae;user-select:none;
+    transition:transform .05s,background .12s}
+  .key.wide{grid-column:span 2}
+  .key.space{grid-column:span 5}
+  .key.hit{background:var(--accent);color:#0b0b0e;border-color:var(--accent);transform:translateY(2px)}
+  .key label{display:block;text-align:center;line-height:1.15}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:min(680px,100%);margin-bottom:16px}
+  .stat{flex:1;min-width:104px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+  .stat span{color:var(--dim);font-size:11px;letter-spacing:.05em}
+  .stat.hot b{color:var(--accent)}
+
+  .inputrow{width:min(680px,100%);display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .inputrow input[type=text]{
+    flex:1;min-width:200px;background:#14141a;border:1px solid var(--line);color:var(--fg);
+    border-radius:10px;padding:11px 13px;font-size:14px;font-family:inherit;outline:none;
+  }
+  .inputrow input[type=text]:focus{border-color:#4a4a5e}
+  .btn{background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:10px;
+    padding:11px 16px;font-size:13px;cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap}
+  .btn:hover{border-color:#4a4a5e}
+  .btn.primary{border-color:var(--accent);color:var(--accent)}
+  .row-opts{width:min(680px,100%);display:flex;gap:18px;flex-wrap:wrap;align-items:center;
+    font-size:12px;color:var(--dim);margin-bottom:22px}
+  .row-opts label{display:flex;align-items:center;gap:7px;cursor:pointer}
+  input[type=range]{width:120px;accent-color:var(--accent)}
+  footer{color:#4f4f60;font-size:11px;line-height:1.7;text-align:center;max-width:620px}
+  kbd{background:#22222b;border:1px solid #35354a;border-radius:4px;padding:1px 5px;font-size:11px}
+</style>
+</head>
+<body>
+  <h1>⌨️ 键盘音效实验室</h1>
+  <div class="sub">挑一个音色，然后开始打字 —— 连击越快，音高越往上飘</div>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="stage">
+    <canvas id="viz"></canvas>
+    <div class="hint" id="hint">随便敲几个键试试</div>
+  </div>
+
+  <div class="keys" id="keyboard"></div>
+
+  <div class="stats">
+    <div class="stat"><b id="s-keys">0</b><span>按键总数</span></div>
+    <div class="stat hot"><b id="s-combo">0</b><span>当前连击</span></div>
+    <div class="stat"><b id="s-best">0</b><span>最高连击</span></div>
+    <div class="stat"><b id="s-kpm">0</b><span>KPM / 分钟</span></div>
+  </div>
+
+  <div class="inputrow">
+    <input type="text" id="typebox" placeholder="在这里随便打字，每个字符都会响一声…" spellcheck="false">
+    <button class="btn primary" id="demo">▶ 自动演奏一段</button>
+  </div>
+
+  <div class="row-opts">
+    <label>音量 <input type="range" id="vol" min="0" max="100" value="70"></label>
+    <label><input type="checkbox" id="comboOn" checked> 连击升调</label>
+    <label>基准音高 <input type="range" id="tune" min="-12" max="12" value="0"><span id="tuneVal">0</span> 半音</label>
+    <button class="btn" id="reset">清空统计</button>
+  </div>
+
+  <footer>
+    纯合成音，无任何音频文件，零依赖。<br>
+    彩蛋：用同一个键连击到 30 以上，会有一阵粒子爆发。<br>
+    音色参数见 <code>synth.js</code>，Node 端可一键导出 WAV。
+  </footer>
+
+<script src="synth.js"></script>
+<script>
+(function(){
+  'use strict';
+  var K = window.KBSynth;
+
+  // ---------- Web Audio ----------
+  var AC = window.AudioContext || window.webkitAudioContext;
+  var ac = null;
+  function ctx(){
+    if (!ac) ac = new AC();
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+
+  var state = {
+    preset: 'typewriter',
+    volume: 0.7,
+    comboOn: true,
+    tune: 0
+  };
+
+  var tracker = new K.ComboTracker();
+  var totalKeys = 0;
+  var firstKeyAt = 0;
+  var lastKeyAt = 0;
+
+  // 预先算好的噪声缓冲（避免每次创建）
+  var noiseBuf = null;
+  function getNoise(){
+    var c = ctx();
+    if (!noiseBuf) {
+      noiseBuf = c.createBuffer(1, c.sampleRate * 0.4, c.sampleRate);
+      var d = noiseBuf.getChannelData(0), r = K.mulberry32(1234);
+      for (var i = 0; i < d.length; i++) d[i] = r() * 2 - 1;
+    }
+    return noiseBuf;
+  }
+
+  function playLayer(c, layer, when, dest){
+    var gain = c.createGain();
+    var osc = c.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(Math.max(20, layer.freq), when);
+    var endF = Math.max(20, layer.freq + layer.sweep * layer.decay);
+    osc.frequency.exponentialRampToValueAtTime(endF, when + layer.decay * 2.2);
+
+    var env = c.createGain();
+    env.gain.setValueAtTime(Math.max(0.0001, layer.amp), when);
+    env.gain.exponentialRampToValueAtTime(0.0001, when + layer.decay * 3);
+    osc.connect(env);
+
+    var noiseNode = null;
+    if (layer.noise > 0.02) {
+      var src = c.createBufferSource();
+      src.buffer = getNoise();
+      var bp = c.createBiquadFilter();
+      bp.type = 'highpass';
+      bp.frequency.value = Math.max(20, layer.hp);
+      var ng = c.createGain();
+      ng.gain.setValueAtTime(layer.noise * layer.amp, when);
+      ng.gain.exponentialRampToValueAtTime(0.0001, when + layer.decay * 3);
+      src.connect(bp); bp.connect(ng); ng.connect(env);
+      src.start(when); src.stop(when + layer.decay * 3 + 0.02);
+      noiseNode = src;
+    }
+
+    // 干声 + 一点点混响感的延迟
+    env.connect(dest);
+    osc.start(when);
+    osc.stop(when + layer.decay * 3 + 0.02);
+  }
+
+  function playVoice(p, opts){
+    var c = ctx();
+    var when = c.currentTime + 0.001;
+    var master = c.createGain();
+    master.gain.value = Math.pow(state.volume, 1.4);
+    // 简单的立体声展开：click 偏右，tail 偏左
+    var panL = c.createStereoPanner ? c.createStereoPanner() : null;
+    var panR = c.createStereoPanner ? c.createStereoPanner() : null;
+    if (panL && panR) {
+      panL.pan.value = -0.25; panR.pan.value = 0.2;
+      master.connect(panL); master.connect(panR);
+      panL.connect(c.destination); panR.connect(c.destination);
+    } else {
+      master.connect(c.destination);
+    }
+    playLayer(c, p.click, when, master);
+    playLayer(c, p.tail, when, master);
+  }
+
+  // ---------- 触发一次按键 ----------
+  function press(code, fromUser){
+    var now = performance.now();
+    if (fromUser) {
+      totalKeys++;
+      if (!firstKeyAt) firstKeyAt = now;
+      lastKeyAt = now;
+      var combo = tracker.hit(now);
+      if (state.comboOn) {
+        // 连击提升：通过 combo 注入 paramsFor
+      }
+    }
+    var p = K.paramsFor(state.preset, {
+      code: code,
+      combo: state.comboOn ? tracker.combo : 0,
+      rand: Math.random
+    });
+    // 全局调音（半音）
+    if (state.tune) {
+      var f = Math.pow(2, state.tune / 12);
+      p.click.freq *= f; p.click.sweep *= f; p.click.hp *= f;
+      p.tail.freq *= f; p.tail.sweep *= f; p.tail.hp *= f;
+    }
+    playVoice(p);
+    flashKey(code);
+    updateStats();
+    spawnWave(p);
+    if (!hintGone) { hint.classList.add('gone'); hintGone = true; }
+    return p;
+  }
+
+  // ---------- 可视化：一排跳动的声波柱 ----------
+  var cv = document.getElementById('viz');
+  var g2 = cv.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var particles = [];
+  function resize(){
+    var r = cv.getBoundingClientRect();
+    cv.width = Math.floor(r.width * dpr);
+    cv.height = Math.floor(r.height * dpr);
+    g2.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  function spawnWave(p){
+    var w = cv.clientWidth;
+    var x = w / 2 + (Math.random() - 0.5) * w * 0.55;
+    var hue = p.group === 'space' ? 190 : p.group === 'enter' ? 320 : (p.factor > 1.05 ? 45 : 165);
+    particles.push({
+      x: x, y: cv.clientHeight - 8,
+      life: 1,
+      amp: Math.min(1, p.click.amp) * (60 + Math.min(tracker.combo, 30) * 1.6),
+      hue: hue,
+      decay: 0.010 + p.click.decay * 1.6
+    });
+    if (particles.length > 90) particles.shift();
+  }
+
+  var hintGone = false;
+  function loop(){
+    var w = cv.clientWidth, h = cv.clientHeight;
+    g2.clearRect(0, 0, w, h);
+    // 地平线
+    g2.strokeStyle = 'rgba(124,224,195,.14)';
+    g2.beginPath(); g2.moveTo(0, h - 8); g2.lineTo(w, h - 8); g2.stroke();
+
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var q = particles[i];
+      q.life -= q.decay * 3.2;
+      if (q.life <= 0) { particles.splice(i, 1); continue; }
+      var a = q.life * q.life;
+      var hh = q.amp * q.life;
+      var grad = g2.createLinearGradient(0, h - 8, 0, h - 8 - hh);
+      grad.addColorStop(0, 'hsla(' + q.hue + ',85%,62%,' + (a * 0.9) + ')');
+      grad.addColorStop(1, 'hsla(' + q.hue + ',85%,62%,0)');
+      g2.fillStyle = grad;
+      var bw = 3 + q.life * 3;
+      g2.fillRect(q.x - bw / 2, h - 8 - hh, bw, hh);
+      // 一圈涟漪
+      g2.strokeStyle = 'hsla(' + q.hue + ',85%,70%,' + (a * 0.35) + ')';
+      g2.beginPath();
+      g2.arc(q.x, h - 8, (1 - q.life) * 46 + 4, Math.PI, 0);
+      g2.stroke();
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 虚拟键盘 ----------
+  var KEYMAP = [
+    ['KeyQ','Q'],['KeyW','W'],['KeyE','E'],['KeyR','R'],['KeyT','T'],['KeyY','Y'],['KeyU','U'],['KeyI','I'],['KeyO','O'],['KeyP','P'],['Backspace','⌫',2],
+    ['KeyA','A'],['KeyS','S'],['KeyD','D'],['KeyF','F'],['KeyG','G'],['KeyH','H'],['KeyJ','J'],['KeyK','K'],['KeyL','L'],['Enter','Enter',3],
+    ['KeyZ','Z'],['KeyX','X'],['KeyC','C'],['KeyV','V'],['KeyB','B'],['KeyN','N'],['KeyM','M'],['ShiftLeft','Shift',2],
+    ['Space','空格',5],['ArrowLeft','←'],['ArrowDown','↓'],['ArrowUp','↑'],['ArrowRight','→']
+  ];
+  var keysEl = document.getElementById('keyboard');
+  var keyEls = {};
+  KEYMAP.forEach(function(k){
+    var el = document.createElement('div');
+    el.className = 'key' + (k[2] ? ' wide' : '') + (k[0] === 'Space' ? ' space' : '');
+    if (k[2] && k[2] !== 2) el.style.gridColumn = 'span ' + k[2];
+    el.innerHTML = '<label>' + k[1] + '</label>';
+    el.addEventListener('pointerdown', function(e){ e.preventDefault(); press(k[0], true); });
+    keysEl.appendChild(el);
+    keyEls[k[0]] = el;
+  });
+
+  var flashTimers = {};
+  function flashKey(code){
+    var el = keyEls[code];
+    if (!el) return;
+    el.classList.add('hit');
+    clearTimeout(flashTimers[code]);
+    flashTimers[code] = setTimeout(function(){ el.classList.remove('hit'); }, 110);
+  }
+
+  // ---------- 统计 ----------
+  var hint = document.getElementById('hint');
+  var elKeys = document.getElementById('s-keys');
+  var elCombo = document.getElementById('s-combo');
+  var elBest = document.getElementById('s-best');
+  var elKpm = document.getElementById('s-kpm');
+  function updateStats(){
+    elKeys.textContent = totalKeys;
+    elCombo.textContent = tracker.combo;
+    elBest.textContent = tracker.best;
+    elKpm.textContent = K.kpm(totalKeys, lastKeyAt - firstKeyAt);
+    elCombo.parentNode.classList.toggle('hot', tracker.combo >= 5);
+  }
+
+  // ---------- 预设按钮 ----------
+  var presetsEl = document.getElementById('presets');
+  Object.keys(K.PRESETS).forEach(function(name){
+    var p = K.PRESETS[name];
+    var b = document.createElement('button');
+    b.className = 'preset' + (name === state.preset ? ' on' : '');
+    b.dataset.name = name;
+    b.innerHTML = p.name + '<small>' + p.desc + '</small>';
+    b.addEventListener('click', function(){
+      state.preset = name;
+      Array.prototype.forEach.call(presetsEl.children, function(c){ c.classList.toggle('on', c.dataset.name === name); });
+      press('KeyJ', false);
+    });
+    presetsEl.appendChild(b);
+  });
+
+  // ---------- 输入框 & 全局按键 ----------
+  var typebox = document.getElementById('typebox');
+  typebox.addEventListener('keydown', function(e){
+    press(e.code, true);
+  });
+
+  document.addEventListener('keydown', function(e){
+    if (e.target === typebox) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // 避免滚动
+    if (/^(Space|Arrow)/.test(e.code)) e.preventDefault();
+    press(e.code, true);
+  });
+
+  // ---------- 自动演奏 ----------
+  var playing = false;
+  var demoBtn = document.getElementById('demo');
+  demoBtn.addEventListener('click', function(){
+    if (playing) return;
+    playing = true;
+    demoBtn.textContent = '▶ 演奏中…';
+    var i = 0;
+    var letters = 'qwertyuiasdfghjkzxcvbnm';
+    var seq = [];
+    for (var n = 0; n < 46; n++) {
+      seq.push(n % 9 === 8 ? 'Space' : 'Key' + letters[Math.floor(Math.random() * letters.length)].toUpperCase());
+    }
+    seq.push('Enter');
+    (function step(){
+      if (i >= seq.length) {
+        playing = false; demoBtn.textContent = '▶ 自动演奏一段';
+        return;
+      }
+      var code = seq[i++];
+      press(code, true);
+      // 节奏：模仿打字 —— 词与词之间停顿一下
+      setTimeout(step, code === 'Space' ? 210 : 80 + Math.random() * 70);
+    })();
+  });
+
+  // ---------- 音量/调音/连击开关 ----------
+  var vol = document.getElementById('vol');
+  vol.addEventListener('input', function(){ state.volume = vol.value / 100; });
+  var tune = document.getElementById('tune');
+  var tuneVal = document.getElementById('tuneVal');
+  tune.addEventListener('input', function(){ state.tune = +tune.value; tuneVal.textContent = tune.value; });
+  var comboOn = document.getElementById('comboOn');
+  comboOn.addEventListener('change', function(){ state.comboOn = comboOn.checked; });
+  var resetBtn = document.getElementById('reset');
+  resetBtn.addEventListener('click', function(){
+    totalKeys = 0; firstKeyAt = 0; lastKeyAt = 0;
+    tracker.reset(); tracker.best = 0;
+    particles.length = 0;
+    updateStats();
+  });
+
+  // 彩蛋：连击 30 时爆一圈粒子
+  var celebrated = false;
+  setInterval(function(){
+    if (tracker.combo >= 30 && !celebrated) {
+      celebrated = true;
+      for (var i = 0; i < 40; i++) {
+        var p = { group: 'normal', factor: 1.1, click: { amp: 1, decay: 0.03 } };
+        spawnWave(p);
+      }
+    }
+    if (tracker.combo < 30) celebrated = false;
+  }, 200);
+
+  resize();
+  loop();
+  updateStats();
+  window.__kbPress = function(code){ return press(code, true); };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-28",
+  "day": 29,
+  "name": "键盘音效实验室",
+  "slug": "keyboard-sound",
+  "desc": "Web Audio 实时合成 7 种键盘敲击音色，连击升调 + 声波可视化，零音频文件",
+  "type": "创意实验",
+  "stack": "HTML/CSS + Web Audio API + 原生 JS 零依赖（synth.js 可 Node 自测并导出 WAV）"
+}
